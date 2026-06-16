@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAPD® Skip — Liquidaciones</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #181c27;
+    --border:   #252a38;
+    --accent:   #4f8ef7;
+    --accent2:  #a78bfa;
+    --positive: #34d399;
+    --warn:     #fbbf24;
+    --danger:   #f87171;
+    --text:     #e8eaf0;
+    --muted:    #6b7280;
+    --mono:     'JetBrains Mono', 'Fira Mono', monospace;
+    --sans:     'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  /* header */
+  header {
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  header h1 { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .nav-tab:hover { background: rgba(255,255,255,.05); color: var(--text); }
+  .nav-tab.active { background: rgba(79,142,247,.15); color: var(--accent); }
+
+  /* layout */
+  .main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 61px); }
+
+  /* sidebar */
+  aside { border-right: 1px solid var(--border); padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+  /* upload */
+  .upload-zone { border: 1px dashed var(--border); border-radius: 8px; padding: 14px 16px; transition: border-color .2s, background .2s; }
+  .upload-zone.loaded { border-color: var(--positive); background: rgba(52,211,153,.04); }
+  .upload-zone input[type="file"] { display: none; }
+  .upload-zone .uz-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .upload-zone .uz-name  { font-size: 12px; font-family: var(--mono); color: var(--positive); margin-top: 6px; display: none; }
+  .upload-zone.loaded .uz-name { display: block; }
+  .upload-zone .uz-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .uz-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  /* buttons */
+  button.upload-btn {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--accent); font-size: 12px; font-weight: 600; padding: 6px 14px;
+    cursor: pointer; white-space: nowrap; transition: border-color .2s, background .2s;
+  }
+  button.upload-btn:hover { border-color: var(--accent); background: rgba(79,142,247,.08); }
+
+  button.mes-btn {
+    width: 100%; background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.3);
+    border-radius: 6px; color: var(--accent2); font-size: 12px; font-weight: 600;
+    padding: 8px 14px; cursor: pointer; transition: background .2s, border-color .2s;
+  }
+  button.mes-btn:hover { background: rgba(167,139,250,.2); border-color: var(--accent2); }
+
+  button.primary {
+    width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s;
+  }
+  button.primary:hover { opacity: .85; }
+  button.primary:disabled { opacity: .35; cursor: not-allowed; }
+
+  button.secondary {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 7px 14px; font-size: 12px; cursor: pointer; transition: border-color .2s, color .2s;
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* form */
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  select, input[type="date"], input[type="text"], input[type="number"] {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 8px 10px;
+    outline: none; transition: border-color .2s; appearance: none;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  .field { margin-bottom: 14px; }
+  .fee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* content */
+  .content { padding: 32px 40px; overflow-x: auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 300px; gap: 12px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 40px; opacity: .3; }
+
+  /* stats */
+  .stats-bar { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 20px; min-width: 150px; flex: 1;
+  }
+  .stat .s-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .stat .s-value { font-size: 20px; font-weight: 700; font-family: var(--mono); margin-top: 4px; color: var(--accent); }
+  .stat .s-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat.green .s-value  { color: var(--positive); }
+  .stat.purple .s-value { color: var(--accent2); }
+  .stat.warn .s-value   { color: var(--warn); }
+  .stat.danger .s-value { color: var(--danger); }
+  .stat.total { border-color: var(--accent); background: rgba(79,142,247,.06); }
+  .stat.total .s-value { color: var(--accent); font-size: 24px; }
+
+  /* table */
+  .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .table-title { font-size: 15px; font-weight: 700; }
+  .table-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); padding: 10px 14px;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  thead th.right { text-align: right; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 11px 14px; color: var(--text); white-space: nowrap; }
+  td.right { text-align: right; }
+  .td-mono   { font-family: var(--mono); font-size: 12px; }
+  .td-amount { font-family: var(--mono); font-weight: 600; color: var(--positive); }
+  .td-purple { font-family: var(--mono); font-weight: 600; color: var(--accent2); }
+  .td-muted  { color: var(--muted); }
+  .td-email  { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+  .day-separator td {
+    background: rgba(79,142,247,.06); color: var(--accent); font-weight: 700;
+    font-size: 12px; padding: 8px 14px; letter-spacing: .5px;
+    border-top: 1px solid rgba(79,142,247,.2); border-bottom: 1px solid rgba(79,142,247,.2);
+  }
+  .day-total td {
+    background: rgba(52,211,153,.04); color: var(--positive); font-family: var(--mono);
+    font-size: 12px; font-weight: 700; padding: 8px 14px; border-top: 1px solid rgba(52,211,153,.15);
+  }
+  .grand-total td {
+    background: rgba(79,142,247,.08); color: var(--accent); font-family: var(--mono);
+    font-size: 13px; font-weight: 700; padding: 10px 14px;
+    border-top: 2px solid rgba(79,142,247,.3);
+  }
+
+  /* ingresos tab */
+  .ingresos-section { margin-bottom: 36px; }
+  .ingresos-section h2 { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  .mes-input-row { display: flex; align-items: center; gap: 10px; }
+  .mes-input-row .clp-prefix { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .mes-input-row input { flex: 1; }
+
+  /* divider */
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+  /* toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px;
+    font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
+  }
+  #toast.show { opacity: 1; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-blue { background: rgba(79,142,247,.15); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AAPD® Skip</h1>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('liquidaciones', this)">Liquidaciones</button>
+    <button class="nav-tab" onclick="switchTab('ingresos', this)">Ingresos</button>
+  </nav>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <aside>
+    <div>
+      <div class="section-label">Archivos</div>
+      <div class="upload-zone" id="zone-loans">
+        <input type="file" accept=".csv" id="file-loans" onchange="loadFile('loans', this)">
+        <div class="uz-row">
+          <div class="uz-title">Loans</div>
+          <button class="upload-btn" onclick="document.getElementById('file-loans').click()">Subir CSV</button>
+        </div>
+        <div class="uz-label">CSV de Venti (separador ;)</div>
+        <div class="uz-name" id="name-loans"></div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="upload-zone" id="zone-ventas">
+        <input type="file" accept=".csv" id="file-ventas" onchange="loadFile('ventas', this)">
+        <div class="uz-row">
+          <div class="uz-title">Ventas</div>
+          <button class="upload-btn" onclick="document.getElementById('file-ventas').click()">Subir CSV</button>
+        </div>
+        <div class="uz-label">CSV de ventas</div>
+        <div class="uz-name" id="name-ventas"></div>
+      </div>
+    </div>
+
+    <div id="sidebar-liquidaciones">
+      <div class="section-label">Prestador</div>
+      <div class="field">
+        <label>Seleccionar prestador</label>
+        <select id="sel-prestador" onchange="onPrestadorChange()">
+          <option value="">— carga ventas primero —</option>
+        </select>
+      </div>
+      <div class="fee-grid">
+        <div class="field">
+          <label>Fee prestador %</label>
+          <input type="number" id="fee-prestador" step="0.01" min="0" max="100" placeholder="ej: 3.57">
+        </div>
+        <div class="field">
+          <label>Fee paciente %</label>
+          <input type="number" id="fee-paciente" step="0.01" min="0" max="100" placeholder="ej: 5.95">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Período</div>
+      <button class="mes-btn" onclick="setMesEnCurso()">📅 Mes en curso</button>
+      <div class="field" style="margin-top:12px;">
+        <label>Desde</label>
+        <input type="date" id="fecha-desde">
+      </div>
+      <div class="field">
+        <label>Hasta</label>
+        <input type="date" id="fecha-hasta">
+      </div>
+      <div style="font-size:11px; color:var(--muted); margin-top:-6px; margin-bottom:10px;">
+        Dejar vacío = todo el período disponible
+      </div>
+    </div>
+
+    <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>
+      Generar
+    </button>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- TAB: LIQUIDACIONES -->
+    <div class="tab-panel active" id="panel-liquidaciones">
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>Sube Loans y Ventas para comenzar</p>
+      </div>
+    </div>
+
+    <!-- TAB: INGRESOS -->
+    <div class="tab-panel" id="panel-ingresos">
+      <div class="empty-state">
+        <div class="icon">📊</div>
+        <p>Sube Loans y Ventas, luego haz clic en Generar</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── state ──
+const state = { loans: null, ventas: null, activeTab: 'liquidaciones' };
+const FEE_VENTI = 0.057;
+
+const FEES_DEFAULT = {
+  'Saludtech': { prestador: 3.57, paciente: 5.95 },
+  'Examedi':   { prestador: 3.57, paciente: 6.55 },
+  'HisMed':    { prestador: 11.9, paciente: 0 },
+};
+
+// ── tabs ──
+function switchTab(tab, btn) {
+  state.activeTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  // show/hide prestador selector
+  document.getElementById('sidebar-liquidaciones').style.display = tab === 'liquidaciones' ? '' : 'none';
+  document.getElementById('btn-generar').textContent = tab === 'liquidaciones' ? 'Generar liquidación' : 'Generar ingresos';
+}
+
+// ── CSV parser ──
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const first = lines[0];
+  const sep = (first.split(';').length > first.split(',').length) ? ';' : ',';
+
+  function parseLine(line) {
+    const cols = [];
+    let cur = '', inQ = false, i = 0;
+    while (i < line.length) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i += 2; continue; }
+        inQ = !inQ; i++; continue;
+      }
+      if (c === sep && !inQ) { cols.push(cur); cur = ''; i++; continue; }
+      cur += c; i++;
+    }
+    cols.push(cur);
+    return cols;
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.trim());
+  return lines.slice(1).map(line => {
+    if (!line.trim()) return null;
+    const cols = parseLine(line);
+    const row = {};
+    headers.forEach((h, idx) => row[h] = (cols[idx] || '').trim());
+    return row;
+  }).filter(Boolean).filter(r => Object.values(r).some(v => v !== ''));
+}
+
+function extractOrderHash(meta) {
+  if (!meta) return null;
+  const m = meta.match(/gokeipay_order_hash":"([^"]+)"/);
+  return m ? m[1] : null;
+}
+
+// ── file loader ──
+function loadFile(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = parseCSV(e.target.result);
+    state[type] = data;
+    document.getElementById('zone-' + type).classList.add('loaded');
+    document.getElementById('name-' + type).textContent = file.name;
+    toast(`${type === 'loans' ? 'Loans' : 'Ventas'} cargado — ${data.length} registros`);
+    if (type === 'ventas') populatePrestadores(data);
+    checkReady();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function populatePrestadores(ventas) {
+  const prestadores = [...new Set(ventas.map(r => r['Prestador']).filter(Boolean))].sort();
+  const sel = document.getElementById('sel-prestador');
+  sel.innerHTML = '<option value="">Todos los prestadores</option>' +
+    prestadores.map(p => `<option value="${p}">${p}</option>`).join('');
+  onPrestadorChange();
+}
+
+function onPrestadorChange() {
+  const p = document.getElementById('sel-prestador').value;
+  const fees = FEES_DEFAULT[p] || { prestador: 3.57, paciente: 5.95 };
+  document.getElementById('fee-prestador').value = fees.prestador;
+  document.getElementById('fee-paciente').value  = fees.paciente;
+}
+
+function checkReady() {
+  document.getElementById('btn-generar').disabled = !(state.loans && state.ventas);
+}
+
+// ── formatters ──
+const fmtCLP  = n => '$' + Math.round(n).toLocaleString('es-CL');
+const fmtDate = s => s ? s.split(' ')[0] : '';
+const monthKey = s => s ? s.slice(0, 7) : '';  // "2026-03"
+const monthLabel = k => {
+  const [y, m] = k.split('-');
+  const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${names[parseInt(m)-1]} ${y}`;
+};
+
+// ── dispatcher ──
+function generarActivo() {
+  if (state.activeTab === 'liquidaciones') generarLiquidacion();
+  else generarIngresos();
+}
+
+// ── fecha filters ──
+function getFechas() {
+  const desdeStr = document.getElementById('fecha-desde').value;
+  const hastaStr = document.getElementById('fecha-hasta').value;
+  return {
+    desde: desdeStr ? new Date(desdeStr) : null,
+    hasta: hastaStr ? new Date(hastaStr + 'T23:59:59') : null,
+  };
+}
+
+// ── build joined rows (shared) ──
+function buildRows(filtrarPrestador) {
+  const ventasIdx = {};
+  state.ventas.forEach(v => { if (v['Orden']) ventasIdx[v['Orden']] = v; });
+  const { desde, hasta } = getFechas();
+  const rows = [];
+
+  state.loans.forEach(loan => {
+    if (loan['Status'] !== 'succeeded') return;
+    if (parseInt(loan['Refunded']) === 1) return;
+    const hash = extractOrderHash(loan['Metadata']);
+    if (!hash) return;
+    const venta = ventasIdx[hash];
+    if (!venta) return;
+    const prestador = venta['Prestador'];
+    if (filtrarPrestador && prestador !== filtrarPrestador) return;
+    const fecha = new Date(loan['Creation Date (Local)']);
+    if (desde && fecha < desde) return;
+    if (hasta && fecha > hasta) return;
+
+    const def = FEES_DEFAULT[prestador] || { prestador: 3.57, paciente: 5.95 };
+    const fp   = def.prestador / 100;
+
+    const precio     = parseFloat(venta['Total Amount']) || 0;
+    const amountLoan = parseFloat(loan['Amount']) || 0;
+    const txFee      = parseFloat(loan['Transaction Fee']) || 0;
+    const cobro1     = parseFloat(venta['Installment 1 amount']) || amountLoan;
+
+    rows.push({
+      fecha,
+      fechaStr:      fmtDate(loan['Creation Date (Local)']),
+      mes:           monthKey(loan['Creation Date (Local)']),
+      email:         loan['Customer Email'] || venta['Email'] || '',
+      rut:           venta['RUT'] || '',
+      cliente:       venta['Cliente'] || '',
+      prestador,
+      precio,
+      amountLoan,
+      txFee,
+      cobro1,
+      depositoPrest: precio * (1 - fp),
+      feePrest$:     precio * fp,
+      depositoVenti: amountLoan - txFee,
+      ingresoSkip:   (amountLoan - txFee) - precio * (1 - fp),
+    });
+  });
+
+  rows.sort((a, b) => a.fecha - b.fecha);
+  return rows;
+}
+
+// ══════════════════════════════════
+// TAB 1: LIQUIDACIONES
+// ══════════════════════════════════
+function generarLiquidacion() {
+  const prestadorSel = document.getElementById('sel-prestador').value;
+  const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
+
+  let rows = buildRows(prestadorSel);
+
+  // Si hay prestador seleccionado con fee custom, recalcular
+  if (prestadorSel) {
+    rows = rows.map(r => ({
+      ...r,
+      depositoPrest: r.precio * (1 - feePrestPct),
+      feePrest$:     r.precio * feePrestPct,
+      ingresoSkip:   r.depositoVenti - r.precio * (1 - feePrestPct),
+    }));
+  }
+
+  if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
+
+  const { desde, hasta } = getFechas();
+  const totalDeposito = rows.reduce((s, r) => s + r.depositoPrest, 0);
+  const totalPrecio   = rows.reduce((s, r) => s + r.precio, 0);
+  const totalFee      = rows.reduce((s, r) => s + r.feePrest$, 0);
+  const titulo        = prestadorSel || 'Todos los prestadores';
+  const periodo       = (desde || hasta)
+    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
+    : 'Todo el período';
+
+  const byDay = {};
+  rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
+
+  let html = `
+    <div class="stats-bar">
+      <div class="stat green">
+        <div class="s-label">A depositar</div>
+        <div class="s-value">${fmtCLP(totalDeposito)}</div>
+        <div class="s-sub">${rows.length} transacciones</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">Precio prestaciones</div>
+        <div class="s-value">${fmtCLP(totalPrecio)}</div>
+        <div class="s-sub">antes de fees</div>
+      </div>
+      <div class="stat purple">
+        <div class="s-label">Fee prestador</div>
+        <div class="s-value">${fmtCLP(totalFee)}</div>
+        <div class="s-sub">${prestadorSel ? (feePrestPct*100).toFixed(2)+'%' : 'variable'}</div>
+      </div>
+    </div>
+    <div class="table-header">
+      <div>
+        <div class="table-title">${titulo} <span class="tag tag-blue">${periodo}</span></div>
+        <div class="table-subtitle">Transacciones exitosas · reembolsos excluidos</div>
+      </div>
+      <button class="secondary" onclick="copiarTabla('tabla-resultado')">Copiar tabla</button>
+    </div>
+    <div class="table-wrap">
+    <table id="tabla-resultado">
+      <thead><tr>
+        <th>Fecha</th><th>Cliente</th><th>Email</th><th>RUT</th>
+        ${!prestadorSel ? '<th>Prestador</th>' : ''}
+        <th class="right">Precio venta</th>
+        <th class="right">1er cobro paciente</th>
+        <th class="right">A depositar</th>
+      </tr></thead>
+      <tbody>`;
+
+  const cols = prestadorSel ? 7 : 8;
+  Object.entries(byDay).forEach(([dia, drows]) => {
+    const tot = drows.reduce((s, r) => s + r.depositoPrest, 0);
+    html += `<tr class="day-separator"><td colspan="${cols}">📅 ${dia}</td></tr>`;
+    drows.forEach(r => {
+      html += `<tr>
+        <td class="td-mono td-muted">${r.fechaStr}</td>
+        <td>${r.cliente}</td>
+        <td class="td-email td-muted">${r.email}</td>
+        <td class="td-mono td-muted">${r.rut}</td>
+        ${!prestadorSel ? `<td>${r.prestador}</td>` : ''}
+        <td class="td-amount right">${fmtCLP(r.precio)}</td>
+        <td class="td-mono right">${fmtCLP(r.cobro1)}</td>
+        <td class="td-amount right">${fmtCLP(r.depositoPrest)}</td>
+      </tr>`;
+    });
+    html += `<tr class="day-total">
+      <td colspan="${cols-1}" style="text-align:right;color:var(--muted);font-size:11px;font-weight:400;">Total ${dia}</td>
+      <td>${fmtCLP(tot)}</td></tr>`;
+  });
+
+  html += `<tr class="grand-total">
+    <td colspan="${cols-1}" style="text-align:right;">TOTAL</td>
+    <td>${fmtCLP(totalDeposito)}</td>
+  </tr></tbody></table></div>`;
+
+  document.getElementById('panel-liquidaciones').innerHTML = html;
+}
+
+// ══════════════════════════════════
+// TAB 2: INGRESOS
+// ══════════════════════════════════
+function generarIngresos() {
+  const rows = buildRows(null);
+  if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
+
+  // agrupar por mes
+  const meses = {};
+  rows.forEach(r => {
+    if (!meses[r.mes]) meses[r.mes] = { rows: [], depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
+    const m = meses[r.mes];
+    m.rows.push(r);
+    m.depositoVenti += r.depositoVenti;
+    m.depositoPrest += r.depositoPrest;
+    m.ingresoSkip   += r.ingresoSkip;
+  });
+
+  const mesKeys = Object.keys(meses).sort();
+
+  // leer ajustes manuales guardados (o inicializar)
+  const ajustes = state.ajustesCuotas || {};
+
+  // totales globales
+  const totalVenti  = Object.values(meses).reduce((s,m) => s + m.depositoVenti, 0);
+  const totalPrest  = Object.values(meses).reduce((s,m) => s + m.depositoPrest, 0);
+  const totalSkip   = Object.values(meses).reduce((s,m) => s + m.ingresoSkip, 0);
+  const totalAjuste = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k]) || 0), 0);
+  const totalReal   = totalSkip - totalAjuste;
+
+  let html = `
+  <!-- KPIs globales -->
+  <div class="stats-bar">
+    <div class="stat green">
+      <div class="s-label">Depósito Venti → Skip</div>
+      <div class="s-value">${fmtCLP(totalVenti)}</div>
+      <div class="s-sub">todo el período</div>
+    </div>
+    <div class="stat purple">
+      <div class="s-label">Depósito Skip → Prestadores</div>
+      <div class="s-value">${fmtCLP(totalPrest)}</div>
+      <div class="s-sub">todo el período</div>
+    </div>
+    <div class="stat warn">
+      <div class="s-label">Cuotas no cobradas</div>
+      <div class="s-value" id="kpi-ajuste">${fmtCLP(totalAjuste)}</div>
+      <div class="s-sub">ingresado manualmente</div>
+    </div>
+    <div class="stat total">
+      <div class="s-label">Ingreso neto Skip</div>
+      <div class="s-value" id="kpi-total">${fmtCLP(totalReal)}</div>
+      <div class="s-sub">después de todos los descuentos</div>
+    </div>
+  </div>
+
+  <!-- Tabla mes a mes -->
+  <div class="ingresos-section">
+    <h2>Ingresos mes a mes</h2>
+    <div class="table-wrap">
+    <table id="tabla-ingresos">
+      <thead><tr>
+        <th>Mes</th>
+        <th class="right">Depósito Venti</th>
+        <th class="right">Depósito a prestadores</th>
+        <th class="right">Ingreso bruto Skip</th>
+        <th class="right">Cuotas no cobradas</th>
+        <th class="right">Ingreso neto Skip</th>
+      </tr></thead>
+      <tbody>`;
+
+  mesKeys.forEach(k => {
+    const m = meses[k];
+    const ajuste = parseFloat(ajustes[k]) || 0;
+    const neto   = m.ingresoSkip - ajuste;
+    html += `<tr>
+      <td style="font-weight:600;">${monthLabel(k)}</td>
+      <td class="td-amount right">${fmtCLP(m.depositoVenti)}</td>
+      <td class="td-purple right">${fmtCLP(m.depositoPrest)}</td>
+      <td class="td-mono right" style="color:var(--warn)">${fmtCLP(m.ingresoSkip)}</td>
+      <td class="right">
+        <div class="mes-input-row" style="justify-content:flex-end;">
+          <span class="clp-prefix">$</span>
+          <input type="number" min="0" style="width:130px; text-align:right;"
+            value="${ajuste || ''}" placeholder="0"
+            oninput="actualizarAjuste('${k}', this.value)"
+            id="ajuste-${k}">
+        </div>
+      </td>
+      <td class="td-mono right" id="neto-${k}" style="color:${neto >= 0 ? 'var(--positive)' : 'var(--danger)'}; font-weight:700;">${fmtCLP(neto)}</td>
+    </tr>`;
+  });
+
+  const ajusteTot = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k])||0), 0);
+  const netoTot   = totalSkip - ajusteTot;
+
+  html += `</tbody>
+    <tfoot>
+      <tr style="border-top: 2px solid var(--border);">
+        <td style="font-weight:700; padding:12px 14px;">TOTAL</td>
+        <td class="td-amount right" style="padding:12px 14px;">${fmtCLP(totalVenti)}</td>
+        <td class="td-purple right" style="padding:12px 14px;">${fmtCLP(totalPrest)}</td>
+        <td class="td-mono right" style="padding:12px 14px; color:var(--warn); font-weight:700;">${fmtCLP(totalSkip)}</td>
+        <td class="td-mono right" style="padding:12px 14px; color:var(--danger); font-weight:700;" id="total-ajuste-footer">${fmtCLP(ajusteTot)}</td>
+        <td class="td-mono right" style="padding:12px 14px; color:var(--positive); font-weight:700;" id="total-neto-footer">${fmtCLP(netoTot)}</td>
+      </tr>
+    </tfoot>
+    </table></div>
+  </div>`;
+
+  document.getElementById('panel-ingresos').innerHTML = html;
+}
+
+function actualizarAjuste(mes, val) {
+  if (!state.ajustesCuotas) state.ajustesCuotas = {};
+  state.ajustesCuotas[mes] = parseFloat(val) || 0;
+
+  // recalcular totales dinámicamente
+  const mesesKeys = Object.keys(state.ajustesCuotas);
+
+  // recalcular neto de cada mes visible
+  document.querySelectorAll('[id^="ajuste-"]').forEach(input => {
+    const k = input.id.replace('ajuste-', '');
+    const ajuste = parseFloat(state.ajustesCuotas[k]) || 0;
+    // necesitamos el ingreso bruto del mes — lo leemos del DOM
+    const netoEl = document.getElementById('neto-' + k);
+    if (!netoEl) return;
+    // reconstruir desde la tabla
+    const row = input.closest('tr');
+    const brutoText = row.querySelectorAll('td')[3].textContent.replace(/[$.,]/g, '').trim();
+    const bruto = parseInt(brutoText.replace(/\./g, '')) || 0;
+    const neto  = bruto - ajuste;
+    netoEl.textContent = fmtCLP(neto);
+    netoEl.style.color = neto >= 0 ? 'var(--positive)' : 'var(--danger)';
+  });
+
+  // recalcular footer
+  let totalAjuste = 0, totalNeto = 0;
+  document.querySelectorAll('[id^="ajuste-"]').forEach(input => {
+    totalAjuste += parseFloat(input.value) || 0;
+  });
+  document.querySelectorAll('[id^="neto-"]').forEach(el => {
+    const v = parseInt(el.textContent.replace(/[$.\-]/g, '').replace(/,/g,'.')) || 0;
+    // parse clp format
+  });
+
+  // más simple: sumar desde los campos
+  const netoEls = document.querySelectorAll('[id^="neto-"]');
+  let netoTotal = 0;
+  netoEls.forEach(el => {
+    const txt = el.textContent.replace(/\$/g,'').replace(/\./g,'').replace(/,/g,'.');
+    netoTotal += parseFloat(txt) || 0;
+  });
+
+  const footerAjuste = document.getElementById('total-ajuste-footer');
+  const footerNeto   = document.getElementById('total-neto-footer');
+  if (footerAjuste) footerAjuste.textContent = fmtCLP(totalAjuste);
+  if (footerNeto)   footerNeto.textContent   = fmtCLP(netoTotal);
+
+  // actualizar KPIs arriba
+  const kpiAjuste = document.getElementById('kpi-ajuste');
+  const kpiTotal  = document.getElementById('kpi-total');
+  if (kpiAjuste) kpiAjuste.textContent = fmtCLP(totalAjuste);
+  if (kpiTotal)  kpiTotal.textContent  = fmtCLP(netoTotal);
+}
+
+// ── shared utils ──
+function copiarTabla(id) {
+  const tabla = document.getElementById(id);
+  if (!tabla) return;
+  const rows  = tabla.querySelectorAll('tr');
+  const tsv   = [...rows].map(tr =>
+    [...tr.querySelectorAll('th,td')].map(c => c.innerText.trim()).join('\t')
+  ).join('\n');
+  navigator.clipboard.writeText(tsv).then(() => toast('Tabla copiada — pega directo en Sheets o Excel'));
+}
+
+function setMesEnCurso() {
+  const hoy   = new Date();
+  const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const hasta  = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  const fmt   = d => d.toISOString().split('T')[0];
+  document.getElementById('fecha-desde').value = fmt(desde);
+  document.getElementById('fecha-hasta').value  = fmt(hasta);
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
