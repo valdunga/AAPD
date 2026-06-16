@@ -16,44 +16,26 @@
     --danger:   #f87171;
     --text:     #e8eaf0;
     --muted:    #6b7280;
+    --paid-bg:  rgba(52,211,153,.07);
+    --paid-border: rgba(52,211,153,.25);
     --mono:     'JetBrains Mono', 'Fira Mono', monospace;
     --sans:     'Inter', system-ui, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
 
-  /* header */
-  header {
-    padding: 20px 40px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 32px;
-  }
+  header { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 32px; }
   header h1 { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
   .nav-tabs { display: flex; gap: 4px; }
-  .nav-tab {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 7px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background .15s, color .15s;
-  }
+  .nav-tab { background: none; border: none; color: var(--muted); font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 6px; cursor: pointer; transition: background .15s, color .15s; }
   .nav-tab:hover { background: rgba(255,255,255,.05); color: var(--text); }
   .nav-tab.active { background: rgba(79,142,247,.15); color: var(--accent); }
 
-  /* layout */
   .main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 61px); }
 
-  /* sidebar */
   aside { border-right: 1px solid var(--border); padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
   .section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
 
-  /* upload */
   .upload-zone { border: 1px dashed var(--border); border-radius: 8px; padding: 14px 16px; transition: border-color .2s, background .2s; }
   .upload-zone.loaded { border-color: var(--positive); background: rgba(52,211,153,.04); }
   .upload-zone input[type="file"] { display: none; }
@@ -63,62 +45,34 @@
   .upload-zone .uz-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
   .uz-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
-  /* buttons */
-  button.upload-btn {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--accent); font-size: 12px; font-weight: 600; padding: 6px 14px;
-    cursor: pointer; white-space: nowrap; transition: border-color .2s, background .2s;
-  }
+  button.upload-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-size: 12px; font-weight: 600; padding: 6px 14px; cursor: pointer; white-space: nowrap; transition: border-color .2s, background .2s; }
   button.upload-btn:hover { border-color: var(--accent); background: rgba(79,142,247,.08); }
 
-  button.mes-btn {
-    width: 100%; background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.3);
-    border-radius: 6px; color: var(--accent2); font-size: 12px; font-weight: 600;
-    padding: 8px 14px; cursor: pointer; transition: background .2s, border-color .2s;
-  }
+  button.mes-btn { width: 100%; background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.3); border-radius: 6px; color: var(--accent2); font-size: 12px; font-weight: 600; padding: 8px 14px; cursor: pointer; transition: background .2s, border-color .2s; }
   button.mes-btn:hover { background: rgba(167,139,250,.2); border-color: var(--accent2); }
 
-  button.primary {
-    width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s;
-  }
+  button.primary { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
   button.primary:hover { opacity: .85; }
   button.primary:disabled { opacity: .35; cursor: not-allowed; }
 
-  button.secondary {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    border-radius: 6px; padding: 7px 14px; font-size: 12px; cursor: pointer; transition: border-color .2s, color .2s;
-  }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 7px 14px; font-size: 12px; cursor: pointer; transition: border-color .2s, color .2s; }
   button.secondary:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* form */
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
-  select, input[type="date"], input[type="text"], input[type="number"] {
-    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-family: var(--sans); font-size: 13px; padding: 8px 10px;
-    outline: none; transition: border-color .2s; appearance: none;
-  }
+  select, input[type="date"], input[type="text"], input[type="number"] { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--sans); font-size: 13px; padding: 8px 10px; outline: none; transition: border-color .2s; appearance: none; }
   select:focus, input:focus { border-color: var(--accent); }
   .field { margin-bottom: 14px; }
   .fee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  /* content */
   .content { padding: 32px 40px; overflow-x: auto; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 300px; gap: 12px; color: var(--muted);
-  }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; gap: 12px; color: var(--muted); }
   .empty-state .icon { font-size: 40px; opacity: .3; }
 
-  /* stats */
   .stats-bar { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
-  .stat {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 20px; min-width: 150px; flex: 1;
-  }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; min-width: 150px; flex: 1; }
   .stat .s-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .stat .s-value { font-size: 20px; font-weight: 700; font-family: var(--mono); margin-top: 4px; color: var(--accent); }
   .stat .s-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -129,17 +83,12 @@
   .stat.total { border-color: var(--accent); background: rgba(79,142,247,.06); }
   .stat.total .s-value { color: var(--accent); font-size: 24px; }
 
-  /* table */
   .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .table-title { font-size: 15px; font-weight: 700; }
   .table-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead th {
-    text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1px; color: var(--muted); padding: 10px 14px;
-    border-bottom: 1px solid var(--border); white-space: nowrap;
-  }
+  thead th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   thead th.right { text-align: right; }
   tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
   tbody tr:hover { background: rgba(255,255,255,.025); }
@@ -152,38 +101,46 @@
   .td-muted  { color: var(--muted); }
   .td-email  { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 
-  .day-separator td {
-    background: rgba(79,142,247,.06); color: var(--accent); font-weight: 700;
-    font-size: 12px; padding: 8px 14px; letter-spacing: .5px;
-    border-top: 1px solid rgba(79,142,247,.2); border-bottom: 1px solid rgba(79,142,247,.2);
-  }
-  .day-total td {
-    background: rgba(52,211,153,.04); color: var(--positive); font-family: var(--mono);
-    font-size: 12px; font-weight: 700; padding: 8px 14px; border-top: 1px solid rgba(52,211,153,.15);
-  }
-  .grand-total td {
-    background: rgba(79,142,247,.08); color: var(--accent); font-family: var(--mono);
-    font-size: 13px; font-weight: 700; padding: 10px 14px;
-    border-top: 2px solid rgba(79,142,247,.3);
-  }
+  /* day rows */
+  .day-separator td { background: rgba(79,142,247,.06); color: var(--accent); font-weight: 700; font-size: 12px; padding: 0; letter-spacing: .5px; border-top: 1px solid rgba(79,142,247,.2); border-bottom: 1px solid rgba(79,142,247,.2); }
+  .day-separator-inner { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; }
+  .day-total td { background: rgba(52,211,153,.04); color: var(--positive); font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 8px 14px; border-top: 1px solid rgba(52,211,153,.15); }
+  .grand-total td { background: rgba(79,142,247,.08); color: var(--accent); font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 10px 14px; border-top: 2px solid rgba(79,142,247,.3); }
 
-  /* ingresos tab */
+  /* paid state */
+  tr.paid-row td { opacity: .45; text-decoration: line-through; text-decoration-color: rgba(52,211,153,.4); }
+  tr.paid-separator td { background: var(--paid-bg) !important; border-color: var(--paid-border) !important; }
+  tr.paid-separator .day-separator-inner { color: var(--positive); }
+  tr.paid-day-total td { background: var(--paid-bg) !important; color: var(--positive); opacity: .6; }
+
+  /* paid toggle button */
+  .paid-toggle { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid transparent; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 8px; transition: all .15s; color: var(--muted); }
+  .paid-toggle:hover { border-color: var(--positive); color: var(--positive); background: rgba(52,211,153,.08); }
+  .paid-toggle.is-paid { color: var(--positive); border-color: var(--positive); background: rgba(52,211,153,.12); }
+  .paid-toggle .check { font-size: 13px; }
+
+  /* alert banner */
+  .alert-banner { display: flex; align-items: flex-start; gap: 12px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; }
+  .alert-banner .alert-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .alert-banner .alert-body { flex: 1; }
+  .alert-banner .alert-title { font-size: 13px; font-weight: 700; color: var(--danger); margin-bottom: 3px; }
+  .alert-banner .alert-text  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .alert-toggle { background: none; border: 1px solid rgba(248,113,113,.4); border-radius: 5px; color: var(--danger); font-size: 11px; font-weight: 600; padding: 4px 10px; cursor: pointer; margin-top: 8px; transition: background .15s; }
+  .alert-toggle:hover { background: rgba(248,113,113,.1); }
+  .alert-detail { display: none; margin-top: 12px; }
+  .alert-detail.open { display: block; }
+  .alert-detail table { font-size: 12px; }
+  .alert-detail thead th { color: rgba(248,113,113,.7); border-bottom-color: rgba(248,113,113,.2); }
+  .alert-detail tbody tr { border-bottom-color: rgba(248,113,113,.1); }
+
+  /* ingresos */
   .ingresos-section { margin-bottom: 36px; }
   .ingresos-section h2 { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-
   .mes-input-row { display: flex; align-items: center; gap: 10px; }
   .mes-input-row .clp-prefix { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .mes-input-row input { flex: 1; }
 
-  /* divider */
-  .divider { height: 1px; background: var(--border); margin: 32px 0; }
-
-  /* toast */
-  #toast {
-    position: fixed; bottom: 24px; right: 24px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px;
-    font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
-  }
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100; }
   #toast.show { opacity: 1; }
 
   .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
@@ -201,7 +158,6 @@
 </header>
 
 <div class="main">
-  <!-- SIDEBAR -->
   <aside>
     <div>
       <div class="section-label">Archivos</div>
@@ -262,45 +218,54 @@
       </div>
     </div>
 
-    <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>
-      Generar
-    </button>
+    <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>Generar</button>
   </aside>
 
-  <!-- CONTENT -->
   <div class="content">
-
-    <!-- TAB: LIQUIDACIONES -->
     <div class="tab-panel active" id="panel-liquidaciones">
-      <div class="empty-state">
-        <div class="icon">📋</div>
-        <p>Sube Loans y Ventas para comenzar</p>
-      </div>
+      <div class="empty-state"><div class="icon">📋</div><p>Sube Loans y Ventas para comenzar</p></div>
     </div>
-
-    <!-- TAB: INGRESOS -->
     <div class="tab-panel" id="panel-ingresos">
-      <div class="empty-state">
-        <div class="icon">📊</div>
-        <p>Sube Loans y Ventas, luego haz clic en Generar</p>
-      </div>
+      <div class="empty-state"><div class="icon">📊</div><p>Sube Loans y Ventas, luego haz clic en Generar</p></div>
     </div>
-
   </div>
 </div>
 
 <div id="toast"></div>
 
 <script>
-// ── state ──
-const state = { loans: null, ventas: null, activeTab: 'liquidaciones' };
+const state = { loans: null, ventas: null, activeTab: 'liquidaciones', ajustesCuotas: {} };
 const FEE_VENTI = 0.057;
-
 const FEES_DEFAULT = {
   'Saludtech': { prestador: 3.57, paciente: 5.95 },
   'Examedi':   { prestador: 3.57, paciente: 6.55 },
   'HisMed':    { prestador: 11.9, paciente: 0 },
 };
+
+// ── formato: comas para miles, sin decimales ──
+const fmtCLP = n => {
+  const rounded = Math.round(n);
+  return '$' + rounded.toLocaleString('en-US');
+};
+const fmtDate  = s => s ? s.split(' ')[0] : '';
+const monthKey = s => s ? s.slice(0, 7) : '';
+const monthLabel = k => {
+  const [y, m] = k.split('-');
+  const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${names[parseInt(m)-1]} ${y}`;
+};
+
+// ── localStorage helpers ──
+const LS_KEY = 'skip_pagados_v1';
+function getPagados() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+}
+function setPagado(key, val) {
+  const p = getPagados();
+  if (val) p[key] = true; else delete p[key];
+  localStorage.setItem(LS_KEY, JSON.stringify(p));
+}
+function isPagado(key) { return !!getPagados()[key]; }
 
 // ── tabs ──
 function switchTab(tab, btn) {
@@ -309,7 +274,6 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
-  // show/hide prestador selector
   document.getElementById('sidebar-liquidaciones').style.display = tab === 'liquidaciones' ? '' : 'none';
   document.getElementById('btn-generar').textContent = tab === 'liquidaciones' ? 'Generar liquidación' : 'Generar ingresos';
 }
@@ -317,30 +281,21 @@ function switchTab(tab, btn) {
 // ── CSV parser ──
 function parseCSV(text) {
   const lines = text.trim().split('\n');
-  const first = lines[0];
-  const sep = (first.split(';').length > first.split(',').length) ? ';' : ',';
-
+  const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
   function parseLine(line) {
-    const cols = [];
-    let cur = '', inQ = false, i = 0;
+    const cols = []; let cur = '', inQ = false, i = 0;
     while (i < line.length) {
       const c = line[i];
-      if (c === '"') {
-        if (inQ && line[i+1] === '"') { cur += '"'; i += 2; continue; }
-        inQ = !inQ; i++; continue;
-      }
+      if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i += 2; continue; } inQ = !inQ; i++; continue; }
       if (c === sep && !inQ) { cols.push(cur); cur = ''; i++; continue; }
       cur += c; i++;
     }
-    cols.push(cur);
-    return cols;
+    cols.push(cur); return cols;
   }
-
   const headers = parseLine(lines[0]).map(h => h.trim());
   return lines.slice(1).map(line => {
     if (!line.trim()) return null;
-    const cols = parseLine(line);
-    const row = {};
+    const cols = parseLine(line); const row = {};
     headers.forEach((h, idx) => row[h] = (cols[idx] || '').trim());
     return row;
   }).filter(Boolean).filter(r => Object.values(r).some(v => v !== ''));
@@ -354,8 +309,7 @@ function extractOrderHash(meta) {
 
 // ── file loader ──
 function loadFile(type, input) {
-  const file = input.files[0];
-  if (!file) return;
+  const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     const data = parseCSV(e.target.result);
@@ -388,81 +342,78 @@ function checkReady() {
   document.getElementById('btn-generar').disabled = !(state.loans && state.ventas);
 }
 
-// ── formatters ──
-const fmtCLP  = n => '$' + Math.round(n).toLocaleString('es-CL');
-const fmtDate = s => s ? s.split(' ')[0] : '';
-const monthKey = s => s ? s.slice(0, 7) : '';  // "2026-03"
-const monthLabel = k => {
-  const [y, m] = k.split('-');
-  const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return `${names[parseInt(m)-1]} ${y}`;
-};
-
-// ── dispatcher ──
-function generarActivo() {
-  if (state.activeTab === 'liquidaciones') generarLiquidacion();
-  else generarIngresos();
-}
-
-// ── fecha filters ──
-function getFechas() {
-  const desdeStr = document.getElementById('fecha-desde').value;
-  const hastaStr = document.getElementById('fecha-hasta').value;
-  return {
-    desde: desdeStr ? new Date(desdeStr) : null,
-    hasta: hastaStr ? new Date(hastaStr + 'T23:59:59') : null,
-  };
-}
-
-// ── build joined rows (shared) ──
+// ── join rows ──
 function buildRows(filtrarPrestador) {
   const ventasIdx = {};
   state.ventas.forEach(v => { if (v['Orden']) ventasIdx[v['Orden']] = v; });
   const { desde, hasta } = getFechas();
   const rows = [];
-
   state.loans.forEach(loan => {
     if (loan['Status'] !== 'succeeded') return;
     if (parseInt(loan['Refunded']) === 1) return;
-    const hash = extractOrderHash(loan['Metadata']);
-    if (!hash) return;
-    const venta = ventasIdx[hash];
-    if (!venta) return;
+    const hash = extractOrderHash(loan['Metadata']); if (!hash) return;
+    const venta = ventasIdx[hash]; if (!venta) return;
     const prestador = venta['Prestador'];
     if (filtrarPrestador && prestador !== filtrarPrestador) return;
     const fecha = new Date(loan['Creation Date (Local)']);
     if (desde && fecha < desde) return;
     if (hasta && fecha > hasta) return;
-
     const def = FEES_DEFAULT[prestador] || { prestador: 3.57, paciente: 5.95 };
-    const fp   = def.prestador / 100;
-
+    const fp  = def.prestador / 100;
     const precio     = parseFloat(venta['Total Amount']) || 0;
     const amountLoan = parseFloat(loan['Amount']) || 0;
     const txFee      = parseFloat(loan['Transaction Fee']) || 0;
     const cobro1     = parseFloat(venta['Installment 1 amount']) || amountLoan;
-
     rows.push({
-      fecha,
-      fechaStr:      fmtDate(loan['Creation Date (Local)']),
-      mes:           monthKey(loan['Creation Date (Local)']),
-      email:         loan['Customer Email'] || venta['Email'] || '',
-      rut:           venta['RUT'] || '',
-      cliente:       venta['Cliente'] || '',
-      prestador,
-      precio,
-      amountLoan,
-      txFee,
-      cobro1,
-      depositoPrest: precio * (1 - fp),
-      feePrest$:     precio * fp,
+      fecha, fechaStr: fmtDate(loan['Creation Date (Local)']),
+      mes: monthKey(loan['Creation Date (Local)']),
+      email: loan['Customer Email'] || venta['Email'] || '',
+      rut: venta['RUT'] || '', cliente: venta['Cliente'] || '',
+      prestador, precio, amountLoan, txFee, cobro1,
+      depositoPrest: precio * (1 - fp), feePrest$: precio * fp,
       depositoVenti: amountLoan - txFee,
       ingresoSkip:   (amountLoan - txFee) - precio * (1 - fp),
     });
   });
-
   rows.sort((a, b) => a.fecha - b.fecha);
   return rows;
+}
+
+// ── reembolsos indebidos ──
+function buildRefundados() {
+  const ventasIdx = {};
+  state.ventas.forEach(v => { if (v['Orden']) ventasIdx[v['Orden']] = v; });
+  const problemas = [];
+  state.loans.forEach(loan => {
+    if (parseInt(loan['Refunded']) !== 1) return;
+    const hash = extractOrderHash(loan['Metadata']); if (!hash) return;
+    const venta = ventasIdx[hash]; if (!venta) return;
+    const prestador = venta['Prestador']; if (!prestador) return;
+    const def = FEES_DEFAULT[prestador] || { prestador: 3.57, paciente: 5.95 };
+    const fp  = def.prestador / 100;
+    const precio = parseFloat(venta['Total Amount']) || 0;
+    problemas.push({
+      fecha:     fmtDate(loan['Creation Date (Local)']),
+      email:     loan['Customer Email'] || venta['Email'] || '',
+      prestador,
+      precio,
+      refundAmt: parseFloat(loan['Refunded Amount']) || 0,
+      depositoIndebido: precio * (1 - fp),
+      hash,
+    });
+  });
+  return problemas;
+}
+
+function getFechas() {
+  const d = document.getElementById('fecha-desde').value;
+  const h = document.getElementById('fecha-hasta').value;
+  return { desde: d ? new Date(d) : null, hasta: h ? new Date(h + 'T23:59:59') : null };
+}
+
+function generarActivo() {
+  if (state.activeTab === 'liquidaciones') generarLiquidacion();
+  else generarIngresos();
 }
 
 // ══════════════════════════════════
@@ -471,50 +422,64 @@ function buildRows(filtrarPrestador) {
 function generarLiquidacion() {
   const prestadorSel = document.getElementById('sel-prestador').value;
   const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
-
   let rows = buildRows(prestadorSel);
-
-  // Si hay prestador seleccionado con fee custom, recalcular
   if (prestadorSel) {
-    rows = rows.map(r => ({
-      ...r,
+    rows = rows.map(r => ({ ...r,
       depositoPrest: r.precio * (1 - feePrestPct),
       feePrest$:     r.precio * feePrestPct,
       ingresoSkip:   r.depositoVenti - r.precio * (1 - feePrestPct),
     }));
   }
-
   if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
   const { desde, hasta } = getFechas();
   const totalDeposito = rows.reduce((s, r) => s + r.depositoPrest, 0);
   const totalPrecio   = rows.reduce((s, r) => s + r.precio, 0);
   const totalFee      = rows.reduce((s, r) => s + r.feePrest$, 0);
-  const titulo        = prestadorSel || 'Todos los prestadores';
-  const periodo       = (desde || hasta)
+  const titulo  = prestadorSel || 'Todos los prestadores';
+  const periodo = (desde || hasta)
     ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
     : 'Todo el período';
 
+  // alerta reembolsos
+  const refundados = buildRefundados();
+  const refSel = prestadorSel ? refundados.filter(r => r.prestador === prestadorSel) : refundados;
+  let alertaHTML = '';
+  if (refSel.length > 0) {
+    const totalIndebido = refSel.reduce((s, r) => s + r.depositoIndebido, 0);
+    const detRows = refSel.map(r => `<tr>
+      <td class="td-muted">${r.fecha}</td>
+      <td>${r.email}</td>
+      <td>${r.prestador}</td>
+      <td class="td-mono right" style="color:var(--danger)">${fmtCLP(r.depositoIndebido)}</td>
+      <td class="td-mono td-muted right" style="font-size:11px; max-width:140px; overflow:hidden; text-overflow:ellipsis;">${r.hash}</td>
+    </tr>`).join('');
+    alertaHTML = `
+    <div class="alert-banner">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-title">${refSel.length} transacción${refSel.length > 1 ? 'es' : ''} reembolsada${refSel.length > 1 ? 's' : ''} aparece${refSel.length > 1 ? 'n' : ''} en Ventas</div>
+        <div class="alert-text">Posible pago indebido a prestador${refSel.length > 1 ? 'es' : ''} por <strong style="color:var(--danger)">${fmtCLP(totalIndebido)}</strong>. Verificar y gestionar recuperación.</div>
+        <button class="alert-toggle" onclick="toggleAlertDetail(this)">Ver detalle ↓</button>
+        <div class="alert-detail">
+          <table>
+            <thead><tr><th>Fecha</th><th>Email</th><th>Prestador</th><th class="right">Dep. indebido</th><th class="right">Hash</th></tr></thead>
+            <tbody>${detRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }
+
   const byDay = {};
   rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
+  const cols = prestadorSel ? 8 : 9; // +1 para el checkbox col
 
-  let html = `
+  let html = alertaHTML + `
     <div class="stats-bar">
-      <div class="stat green">
-        <div class="s-label">A depositar</div>
-        <div class="s-value">${fmtCLP(totalDeposito)}</div>
-        <div class="s-sub">${rows.length} transacciones</div>
-      </div>
-      <div class="stat">
-        <div class="s-label">Precio prestaciones</div>
-        <div class="s-value">${fmtCLP(totalPrecio)}</div>
-        <div class="s-sub">antes de fees</div>
-      </div>
-      <div class="stat purple">
-        <div class="s-label">Fee prestador</div>
-        <div class="s-value">${fmtCLP(totalFee)}</div>
-        <div class="s-sub">${prestadorSel ? (feePrestPct*100).toFixed(2)+'%' : 'variable'}</div>
-      </div>
+      <div class="stat green"><div class="s-label">A depositar</div><div class="s-value">${fmtCLP(totalDeposito)}</div><div class="s-sub">${rows.length} transacciones</div></div>
+      <div class="stat"><div class="s-label">Precio prestaciones</div><div class="s-value">${fmtCLP(totalPrecio)}</div><div class="s-sub">antes de fees</div></div>
+      <div class="stat purple"><div class="s-label">Fee prestador</div><div class="s-value">${fmtCLP(totalFee)}</div><div class="s-sub">${prestadorSel ? (feePrestPct*100).toFixed(2)+'%' : 'variable'}</div></div>
     </div>
     <div class="table-header">
       <div>
@@ -526,6 +491,7 @@ function generarLiquidacion() {
     <div class="table-wrap">
     <table id="tabla-resultado">
       <thead><tr>
+        <th style="width:36px"></th>
         <th>Fecha</th><th>Cliente</th><th>Email</th><th>RUT</th>
         ${!prestadorSel ? '<th>Prestador</th>' : ''}
         <th class="right">Precio venta</th>
@@ -534,12 +500,31 @@ function generarLiquidacion() {
       </tr></thead>
       <tbody>`;
 
-  const cols = prestadorSel ? 7 : 8;
   Object.entries(byDay).forEach(([dia, drows]) => {
-    const tot = drows.reduce((s, r) => s + r.depositoPrest, 0);
-    html += `<tr class="day-separator"><td colspan="${cols}">📅 ${dia}</td></tr>`;
+    const tot     = drows.reduce((s, r) => s + r.depositoPrest, 0);
+    const pagKey  = `${prestadorSel || 'ALL'}|${dia}`;
+    const pagado  = isPagado(pagKey);
+    const sepCls  = pagado ? 'day-separator paid-separator' : 'day-separator';
+    const totCls  = pagado ? 'day-total paid-day-total' : 'day-total';
+    const rowCls  = pagado ? 'paid-row' : '';
+    const btnCls  = pagado ? 'paid-toggle is-paid' : 'paid-toggle';
+    const btnTxt  = pagado ? '✓ Pagado' : '○ Marcar pagado';
+
+    html += `<tr class="${sepCls}" id="sep-${pagKey.replace(/[|]/g,'_')}">
+      <td colspan="${cols}">
+        <div class="day-separator-inner">
+          <span>📅 ${dia}</span>
+          <button class="${btnCls}" id="btn-${pagKey.replace(/[|]/g,'_')}"
+            onclick="togglePagado('${pagKey}', '${dia}', ${cols})">
+            <span class="check">${pagado ? '✓' : '○'}</span> ${pagado ? 'Pagado' : 'Marcar pagado'}
+          </button>
+        </div>
+      </td>
+    </tr>`;
+
     drows.forEach(r => {
-      html += `<tr>
+      html += `<tr class="${rowCls} data-row-${pagKey.replace(/[|]/g,'_')}">
+        <td></td>
         <td class="td-mono td-muted">${r.fechaStr}</td>
         <td>${r.cliente}</td>
         <td class="td-email td-muted">${r.email}</td>
@@ -550,9 +535,11 @@ function generarLiquidacion() {
         <td class="td-amount right">${fmtCLP(r.depositoPrest)}</td>
       </tr>`;
     });
-    html += `<tr class="day-total">
+
+    html += `<tr class="${totCls} tot-row-${pagKey.replace(/[|]/g,'_')}">
       <td colspan="${cols-1}" style="text-align:right;color:var(--muted);font-size:11px;font-weight:400;">Total ${dia}</td>
-      <td>${fmtCLP(tot)}</td></tr>`;
+      <td>${fmtCLP(tot)}</td>
+    </tr>`;
   });
 
   html += `<tr class="grand-total">
@@ -563,6 +550,39 @@ function generarLiquidacion() {
   document.getElementById('panel-liquidaciones').innerHTML = html;
 }
 
+function togglePagado(pagKey, dia, cols) {
+  const actual = isPagado(pagKey);
+  setPagado(pagKey, !actual);
+  const safeKey = pagKey.replace(/[|]/g,'_');
+
+  // sep
+  const sep = document.getElementById('sep-' + safeKey);
+  if (sep) sep.className = !actual ? 'day-separator paid-separator' : 'day-separator';
+
+  // btn
+  const btn = document.getElementById('btn-' + safeKey);
+  if (btn) {
+    btn.className = !actual ? 'paid-toggle is-paid' : 'paid-toggle';
+    btn.innerHTML = `<span class="check">${!actual ? '✓' : '○'}</span> ${!actual ? 'Pagado' : 'Marcar pagado'}`;
+  }
+
+  // data rows
+  document.querySelectorAll(`.data-row-${safeKey}`).forEach(tr => {
+    tr.className = (!actual ? 'paid-row ' : '') + `data-row-${safeKey}`;
+  });
+
+  // total row
+  document.querySelectorAll(`.tot-row-${safeKey}`).forEach(tr => {
+    tr.className = (!actual ? 'day-total paid-day-total ' : 'day-total ') + `tot-row-${safeKey}`;
+  });
+}
+
+function toggleAlertDetail(btn) {
+  const det = btn.nextElementSibling;
+  det.classList.toggle('open');
+  btn.textContent = det.classList.contains('open') ? 'Ocultar detalle ↑' : 'Ver detalle ↓';
+}
+
 // ══════════════════════════════════
 // TAB 2: INGRESOS
 // ══════════════════════════════════
@@ -570,55 +590,45 @@ function generarIngresos() {
   const rows = buildRows(null);
   if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
-  // agrupar por mes
+  // alerta global de reembolsos
+  const refundados = buildRefundados();
+  let alertaHTML = '';
+  if (refundados.length > 0) {
+    const totalIndebido = refundados.reduce((s, r) => s + r.depositoIndebido, 0);
+    alertaHTML = `
+    <div class="alert-banner">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-title">${refundados.length} transacciones reembolsadas aparecen en Ventas</div>
+        <div class="alert-text">Posible pago indebido a prestadores por <strong style="color:var(--danger)">${fmtCLP(totalIndebido)}</strong> en total. Revisa la pestaña Liquidaciones por prestador para el detalle.</div>
+      </div>
+    </div>`;
+  }
+
   const meses = {};
   rows.forEach(r => {
-    if (!meses[r.mes]) meses[r.mes] = { rows: [], depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
+    if (!meses[r.mes]) meses[r.mes] = { depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
     const m = meses[r.mes];
-    m.rows.push(r);
     m.depositoVenti += r.depositoVenti;
     m.depositoPrest += r.depositoPrest;
     m.ingresoSkip   += r.ingresoSkip;
   });
 
-  const mesKeys = Object.keys(meses).sort();
-
-  // leer ajustes manuales guardados (o inicializar)
-  const ajustes = state.ajustesCuotas || {};
-
-  // totales globales
+  const mesKeys     = Object.keys(meses).sort();
+  const ajustes     = state.ajustesCuotas || {};
   const totalVenti  = Object.values(meses).reduce((s,m) => s + m.depositoVenti, 0);
   const totalPrest  = Object.values(meses).reduce((s,m) => s + m.depositoPrest, 0);
   const totalSkip   = Object.values(meses).reduce((s,m) => s + m.ingresoSkip, 0);
   const totalAjuste = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k]) || 0), 0);
   const totalReal   = totalSkip - totalAjuste;
 
-  let html = `
-  <!-- KPIs globales -->
+  let html = alertaHTML + `
   <div class="stats-bar">
-    <div class="stat green">
-      <div class="s-label">Depósito Venti → Skip</div>
-      <div class="s-value">${fmtCLP(totalVenti)}</div>
-      <div class="s-sub">todo el período</div>
-    </div>
-    <div class="stat purple">
-      <div class="s-label">Depósito Skip → Prestadores</div>
-      <div class="s-value">${fmtCLP(totalPrest)}</div>
-      <div class="s-sub">todo el período</div>
-    </div>
-    <div class="stat warn">
-      <div class="s-label">Cuotas no cobradas</div>
-      <div class="s-value" id="kpi-ajuste">${fmtCLP(totalAjuste)}</div>
-      <div class="s-sub">ingresado manualmente</div>
-    </div>
-    <div class="stat total">
-      <div class="s-label">Ingreso neto Skip</div>
-      <div class="s-value" id="kpi-total">${fmtCLP(totalReal)}</div>
-      <div class="s-sub">después de todos los descuentos</div>
-    </div>
+    <div class="stat green"><div class="s-label">Depósito Venti → Skip</div><div class="s-value">${fmtCLP(totalVenti)}</div><div class="s-sub">todo el período</div></div>
+    <div class="stat purple"><div class="s-label">Depósito Skip → Prestadores</div><div class="s-value">${fmtCLP(totalPrest)}</div><div class="s-sub">todo el período</div></div>
+    <div class="stat warn"><div class="s-label">Cuotas no cobradas</div><div class="s-value" id="kpi-ajuste">${fmtCLP(totalAjuste)}</div><div class="s-sub">ingresado manualmente</div></div>
+    <div class="stat total"><div class="s-label">Ingreso neto Skip</div><div class="s-value" id="kpi-total">${fmtCLP(totalReal)}</div><div class="s-sub">después de todos los descuentos</div></div>
   </div>
-
-  <!-- Tabla mes a mes -->
   <div class="ingresos-section">
     <h2>Ingresos mes a mes</h2>
     <div class="table-wrap">
@@ -633,10 +643,13 @@ function generarIngresos() {
       </tr></thead>
       <tbody>`;
 
+  // guardar brutos por mes para recalcular dinámicamente
+  state._mesBrutos = {};
   mesKeys.forEach(k => {
-    const m = meses[k];
+    const m      = meses[k];
     const ajuste = parseFloat(ajustes[k]) || 0;
     const neto   = m.ingresoSkip - ajuste;
+    state._mesBrutos[k] = m.ingresoSkip;
     html += `<tr>
       <td style="font-weight:600;">${monthLabel(k)}</td>
       <td class="td-amount right">${fmtCLP(m.depositoVenti)}</td>
@@ -655,20 +668,16 @@ function generarIngresos() {
     </tr>`;
   });
 
-  const ajusteTot = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k])||0), 0);
-  const netoTot   = totalSkip - ajusteTot;
-
+  const netoTot = totalSkip - totalAjuste;
   html += `</tbody>
-    <tfoot>
-      <tr style="border-top: 2px solid var(--border);">
-        <td style="font-weight:700; padding:12px 14px;">TOTAL</td>
-        <td class="td-amount right" style="padding:12px 14px;">${fmtCLP(totalVenti)}</td>
-        <td class="td-purple right" style="padding:12px 14px;">${fmtCLP(totalPrest)}</td>
-        <td class="td-mono right" style="padding:12px 14px; color:var(--warn); font-weight:700;">${fmtCLP(totalSkip)}</td>
-        <td class="td-mono right" style="padding:12px 14px; color:var(--danger); font-weight:700;" id="total-ajuste-footer">${fmtCLP(ajusteTot)}</td>
-        <td class="td-mono right" style="padding:12px 14px; color:var(--positive); font-weight:700;" id="total-neto-footer">${fmtCLP(netoTot)}</td>
-      </tr>
-    </tfoot>
+    <tfoot><tr style="border-top:2px solid var(--border);">
+      <td style="font-weight:700;padding:12px 14px;">TOTAL</td>
+      <td class="td-amount right" style="padding:12px 14px;">${fmtCLP(totalVenti)}</td>
+      <td class="td-purple right" style="padding:12px 14px;">${fmtCLP(totalPrest)}</td>
+      <td class="td-mono right" style="padding:12px 14px;color:var(--warn);font-weight:700;">${fmtCLP(totalSkip)}</td>
+      <td class="td-mono right" style="padding:12px 14px;color:var(--danger);font-weight:700;" id="total-ajuste-footer">${fmtCLP(totalAjuste)}</td>
+      <td class="td-mono right" style="padding:12px 14px;color:var(--positive);font-weight:700;" id="total-neto-footer">${fmtCLP(netoTot)}</td>
+    </tr></tfoot>
     </table></div>
   </div>`;
 
@@ -679,79 +688,51 @@ function actualizarAjuste(mes, val) {
   if (!state.ajustesCuotas) state.ajustesCuotas = {};
   state.ajustesCuotas[mes] = parseFloat(val) || 0;
 
-  // recalcular totales dinámicamente
-  const mesesKeys = Object.keys(state.ajustesCuotas);
-
-  // recalcular neto de cada mes visible
-  document.querySelectorAll('[id^="ajuste-"]').forEach(input => {
-    const k = input.id.replace('ajuste-', '');
-    const ajuste = parseFloat(state.ajustesCuotas[k]) || 0;
-    // necesitamos el ingreso bruto del mes — lo leemos del DOM
-    const netoEl = document.getElementById('neto-' + k);
-    if (!netoEl) return;
-    // reconstruir desde la tabla
-    const row = input.closest('tr');
-    const brutoText = row.querySelectorAll('td')[3].textContent.replace(/[$.,]/g, '').trim();
-    const bruto = parseInt(brutoText.replace(/\./g, '')) || 0;
-    const neto  = bruto - ajuste;
-    netoEl.textContent = fmtCLP(neto);
-    netoEl.style.color = neto >= 0 ? 'var(--positive)' : 'var(--danger)';
-  });
-
-  // recalcular footer
   let totalAjuste = 0, totalNeto = 0;
   document.querySelectorAll('[id^="ajuste-"]').forEach(input => {
-    totalAjuste += parseFloat(input.value) || 0;
-  });
-  document.querySelectorAll('[id^="neto-"]').forEach(el => {
-    const v = parseInt(el.textContent.replace(/[$.\-]/g, '').replace(/,/g,'.')) || 0;
-    // parse clp format
-  });
-
-  // más simple: sumar desde los campos
-  const netoEls = document.querySelectorAll('[id^="neto-"]');
-  let netoTotal = 0;
-  netoEls.forEach(el => {
-    const txt = el.textContent.replace(/\$/g,'').replace(/\./g,'').replace(/,/g,'.');
-    netoTotal += parseFloat(txt) || 0;
+    const k      = input.id.replace('ajuste-', '');
+    const ajuste = parseFloat(input.value) || 0;
+    const bruto  = state._mesBrutos[k] || 0;
+    const neto   = bruto - ajuste;
+    totalAjuste += ajuste;
+    totalNeto   += neto;
+    const netoEl = document.getElementById('neto-' + k);
+    if (netoEl) {
+      netoEl.textContent = fmtCLP(neto);
+      netoEl.style.color = neto >= 0 ? 'var(--positive)' : 'var(--danger)';
+    }
   });
 
-  const footerAjuste = document.getElementById('total-ajuste-footer');
-  const footerNeto   = document.getElementById('total-neto-footer');
-  if (footerAjuste) footerAjuste.textContent = fmtCLP(totalAjuste);
-  if (footerNeto)   footerNeto.textContent   = fmtCLP(netoTotal);
-
-  // actualizar KPIs arriba
-  const kpiAjuste = document.getElementById('kpi-ajuste');
-  const kpiTotal  = document.getElementById('kpi-total');
-  if (kpiAjuste) kpiAjuste.textContent = fmtCLP(totalAjuste);
-  if (kpiTotal)  kpiTotal.textContent  = fmtCLP(netoTotal);
+  const fa = document.getElementById('total-ajuste-footer');
+  const fn = document.getElementById('total-neto-footer');
+  if (fa) fa.textContent = fmtCLP(totalAjuste);
+  if (fn) { fn.textContent = fmtCLP(totalNeto); fn.style.color = totalNeto >= 0 ? 'var(--positive)' : 'var(--danger)'; }
+  const ka = document.getElementById('kpi-ajuste');
+  const kt = document.getElementById('kpi-total');
+  if (ka) ka.textContent = fmtCLP(totalAjuste);
+  if (kt) { kt.textContent = fmtCLP(totalNeto); kt.style.color = totalNeto >= 0 ? 'var(--positive)' : 'var(--danger)'; }
 }
 
-// ── shared utils ──
 function copiarTabla(id) {
-  const tabla = document.getElementById(id);
-  if (!tabla) return;
-  const rows  = tabla.querySelectorAll('tr');
-  const tsv   = [...rows].map(tr =>
+  const tabla = document.getElementById(id); if (!tabla) return;
+  const tsv = [...tabla.querySelectorAll('tr')].map(tr =>
     [...tr.querySelectorAll('th,td')].map(c => c.innerText.trim()).join('\t')
   ).join('\n');
   navigator.clipboard.writeText(tsv).then(() => toast('Tabla copiada — pega directo en Sheets o Excel'));
 }
 
 function setMesEnCurso() {
-  const hoy   = new Date();
+  const hoy  = new Date();
   const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const hasta  = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-  const fmt   = d => d.toISOString().split('T')[0];
+  const fmt  = d => d.toISOString().split('T')[0];
   document.getElementById('fecha-desde').value = fmt(desde);
   document.getElementById('fecha-hasta').value  = fmt(hasta);
 }
 
 function toast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
+  el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 </script>
