@@ -363,11 +363,13 @@ function buildRows(filtrarPrestador) {
     const precio     = parseFloat(venta['Total Amount']) || 0;
     const amountLoan = parseFloat(loan['Amount']) || 0;
     const txFee      = parseFloat(loan['Transaction Fee']) || 0;
-    const cobro1     = parseFloat(venta['Installment 1 amount']) || amountLoan;
+    const cobro1     = precio * 0.30; // siempre 30% del precio de la prestación
     rows.push({
       fecha, fechaStr: fmtDate(loan['Creation Date (Local)']),
+      fechaHora: loan['Creation Date (Local)'] || '',
       mes: monthKey(loan['Creation Date (Local)']),
       email: loan['Customer Email'] || venta['Email'] || '',
+      phone: venta['Phone'] || '',
       rut: venta['RUT'] || '', cliente: venta['Cliente'] || '',
       prestador, precio, amountLoan, txFee, cobro1,
       depositoPrest: precio * (1 - fp), feePrest$: precio * fp,
@@ -441,41 +443,14 @@ function generarLiquidacion() {
     ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
     : 'Todo el período';
 
-  // alerta reembolsos
-  const refundados = buildRefundados();
-  const refSel = prestadorSel ? refundados.filter(r => r.prestador === prestadorSel) : refundados;
-  let alertaHTML = '';
-  if (refSel.length > 0) {
-    const totalIndebido = refSel.reduce((s, r) => s + r.depositoIndebido, 0);
-    const detRows = refSel.map(r => `<tr>
-      <td class="td-muted">${r.fecha}</td>
-      <td>${r.email}</td>
-      <td>${r.prestador}</td>
-      <td class="td-mono right" style="color:var(--danger)">${fmtCLP(r.depositoIndebido)}</td>
-      <td class="td-mono td-muted right" style="font-size:11px; max-width:140px; overflow:hidden; text-overflow:ellipsis;">${r.hash}</td>
-    </tr>`).join('');
-    alertaHTML = `
-    <div class="alert-banner">
-      <div class="alert-icon">⚠️</div>
-      <div class="alert-body">
-        <div class="alert-title">${refSel.length} transacción${refSel.length > 1 ? 'es' : ''} reembolsada${refSel.length > 1 ? 's' : ''} aparece${refSel.length > 1 ? 'n' : ''} en Ventas</div>
-        <div class="alert-text">Posible pago indebido a prestador${refSel.length > 1 ? 'es' : ''} por <strong style="color:var(--danger)">${fmtCLP(totalIndebido)}</strong>. Verificar y gestionar recuperación.</div>
-        <button class="alert-toggle" onclick="toggleAlertDetail(this)">Ver detalle ↓</button>
-        <div class="alert-detail">
-          <table>
-            <thead><tr><th>Fecha</th><th>Email</th><th>Prestador</th><th class="right">Dep. indebido</th><th class="right">Hash</th></tr></thead>
-            <tbody>${detRows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>`;
-  }
-
   const byDay = {};
   rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
   const cols = prestadorSel ? 8 : 9; // +1 para el checkbox col
+  // guardar en state para uso del botón "marcar período"
+  state._currentDayKeys = Object.keys(byDay).map(dia => `${prestadorSel || 'ALL'}|${dia}`);
+  state._currentCols = cols;
 
-  let html = alertaHTML + `
+  let html = `
     <div class="stats-bar">
       <div class="stat green"><div class="s-label">A depositar</div><div class="s-value">${fmtCLP(totalDeposito)}</div><div class="s-sub">${rows.length} transacciones</div></div>
       <div class="stat"><div class="s-label">Precio prestaciones</div><div class="s-value">${fmtCLP(totalPrecio)}</div><div class="s-sub">antes de fees</div></div>
@@ -486,7 +461,10 @@ function generarLiquidacion() {
         <div class="table-title">${titulo} <span class="tag tag-blue">${periodo}</span></div>
         <div class="table-subtitle">Transacciones exitosas · reembolsos excluidos</div>
       </div>
-      <button class="secondary" onclick="copiarTabla('tabla-resultado')">Copiar tabla</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="paid-toggle" id="btn-marcar-periodo" onclick="marcarPeriodoCompleto()">○ Marcar período completo</button>
+        <button class="secondary" onclick="descargarXLSX()">⬇ Descargar Excel</button>
+      </div>
     </div>
     <div class="table-wrap">
     <table id="tabla-resultado">
@@ -548,6 +526,13 @@ function generarLiquidacion() {
   </tr></tbody></table></div>`;
 
   document.getElementById('panel-liquidaciones').innerHTML = html;
+  // sync periodo button state
+  const _allPaid = (state._currentDayKeys || []).every(k => isPagado(k)) && (state._currentDayKeys||[]).length > 0;
+  const _btnPer = document.getElementById('btn-marcar-periodo');
+  if (_btnPer) {
+    _btnPer.className = _allPaid ? 'paid-toggle is-paid' : 'paid-toggle';
+    _btnPer.innerHTML = _allPaid ? '✓ Período marcado como pagado' : '○ Marcar período completo';
+  }
 }
 
 function togglePagado(pagKey, dia, cols) {
@@ -590,21 +575,6 @@ function generarIngresos() {
   const rows = buildRows(null);
   if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
-  // alerta global de reembolsos
-  const refundados = buildRefundados();
-  let alertaHTML = '';
-  if (refundados.length > 0) {
-    const totalIndebido = refundados.reduce((s, r) => s + r.depositoIndebido, 0);
-    alertaHTML = `
-    <div class="alert-banner">
-      <div class="alert-icon">⚠️</div>
-      <div class="alert-body">
-        <div class="alert-title">${refundados.length} transacciones reembolsadas aparecen en Ventas</div>
-        <div class="alert-text">Posible pago indebido a prestadores por <strong style="color:var(--danger)">${fmtCLP(totalIndebido)}</strong> en total. Revisa la pestaña Liquidaciones por prestador para el detalle.</div>
-      </div>
-    </div>`;
-  }
-
   const meses = {};
   rows.forEach(r => {
     if (!meses[r.mes]) meses[r.mes] = { depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
@@ -622,7 +592,7 @@ function generarIngresos() {
   const totalAjuste = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k]) || 0), 0);
   const totalReal   = totalSkip - totalAjuste;
 
-  let html = alertaHTML + `
+  let html = `
   <div class="stats-bar">
     <div class="stat green"><div class="s-label">Depósito Venti → Skip</div><div class="s-value">${fmtCLP(totalVenti)}</div><div class="s-sub">todo el período</div></div>
     <div class="stat purple"><div class="s-label">Depósito Skip → Prestadores</div><div class="s-value">${fmtCLP(totalPrest)}</div><div class="s-sub">todo el período</div></div>
@@ -711,6 +681,128 @@ function actualizarAjuste(mes, val) {
   const kt = document.getElementById('kpi-total');
   if (ka) ka.textContent = fmtCLP(totalAjuste);
   if (kt) { kt.textContent = fmtCLP(totalNeto); kt.style.color = totalNeto >= 0 ? 'var(--positive)' : 'var(--danger)'; }
+}
+
+
+// ══════════════════════════════════
+// XLSX DOWNLOAD
+// ══════════════════════════════════
+
+function marcarPeriodoCompleto() {
+  const keys = state._currentDayKeys || [];
+  if (!keys.length) return;
+
+  // determine: if ALL are paid → unpay all; else → pay all
+  const allPaid = keys.every(k => isPagado(k));
+  const setTo   = !allPaid;
+  const cols    = state._currentCols || 8;
+
+  keys.forEach(pagKey => {
+    setPagado(pagKey, setTo);
+    const safeKey = pagKey.replace(/[|]/g,'_');
+    const dia     = pagKey.split('|')[1];
+
+    const sep = document.getElementById('sep-' + safeKey);
+    if (sep) sep.className = setTo ? 'day-separator paid-separator' : 'day-separator';
+
+    const btn = document.getElementById('btn-' + safeKey);
+    if (btn) {
+      btn.className = setTo ? 'paid-toggle is-paid' : 'paid-toggle';
+      btn.innerHTML = `<span class="check">${setTo ? '✓' : '○'}</span> ${setTo ? 'Pagado' : 'Marcar pagado'}`;
+    }
+
+    document.querySelectorAll(`.data-row-${safeKey}`).forEach(tr => {
+      tr.className = (setTo ? 'paid-row ' : '') + `data-row-${safeKey}`;
+    });
+
+    document.querySelectorAll(`.tot-row-${safeKey}`).forEach(tr => {
+      tr.className = (setTo ? 'day-total paid-day-total ' : 'day-total ') + `tot-row-${safeKey}`;
+    });
+  });
+
+  // update the period button itself
+  const btnPer = document.getElementById('btn-marcar-periodo');
+  if (btnPer) {
+    btnPer.className = setTo ? 'paid-toggle is-paid' : 'paid-toggle';
+    btnPer.innerHTML = setTo ? '✓ Período marcado como pagado' : '○ Marcar período completo';
+  }
+
+  toast(setTo ? `${keys.length} días marcados como pagados` : `${keys.length} días desmarcados`);
+}
+
+function descargarXLSX() {
+  const prestadorSel = document.getElementById('sel-prestador').value;
+  const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
+  let rows = buildRows(prestadorSel);
+  if (prestadorSel) {
+    rows = rows.map(r => ({ ...r,
+      depositoPrest: r.precio * (1 - feePrestPct),
+      feePrest$:     r.precio * feePrestPct,
+    }));
+  }
+  if (!rows.length) { toast('Sin datos para exportar'); return; }
+
+  const { desde, hasta } = getFechas();
+  const nombrePrest = prestadorSel || 'Todos';
+  const mesLabel = rows.length > 0 ? rows[0].mes.replace('-','_') : 'periodo';
+  const filename = `Liquidacion_${nombrePrest}_${mesLabel}.xlsx`;
+
+  // group by day
+  const byDay = {};
+  rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
+
+  // Build worksheet data array
+  const wsData = [];
+
+  // Title row
+  wsData.push([`Liquidación ${nombrePrest}`, '', '', '', '', '', '']);
+  const periodoLabel = (desde || hasta)
+    ? `${desde ? desde.toLocaleDateString('es-CL') : ''} al ${hasta ? hasta.toLocaleDateString('es-CL') : ''}`
+    : 'Todo el período';
+  wsData.push([periodoLabel, '', '', '', '', '', '']);
+  wsData.push([]); // blank
+
+  // Header
+  wsData.push(['Fecha', 'Email', 'Teléfono', 'RUT', 'Monto Prestación', 'Monto Cobrado (30%)', 'Monto a Pagar']);
+
+  const totalDeposito = rows.reduce((s,r) => s + r.depositoPrest, 0);
+
+  Object.entries(byDay).forEach(([dia, drows]) => {
+    const totDia = drows.reduce((s,r) => s + r.depositoPrest, 0);
+    drows.forEach(r => {
+      wsData.push([
+        r.fechaHora || r.fechaStr,
+        r.email,
+        r.phone,
+        r.rut,
+        r.precio,
+        r.cobro1,
+        r.depositoPrest,
+      ]);
+    });
+    // day total row
+    wsData.push(['', '', '', '', `TOTAL ${dia}`, '', totDia]);
+  });
+
+  wsData.push([]); // blank
+  wsData.push(['', '', '', '', 'TOTAL PERÍODO', '', totalDeposito]);
+
+  // Convert to CSV with BOM for Excel UTF-8 compatibility
+  const csvLines = wsData.map(row => row.map(cell => {
+    if (cell === undefined || cell === null) return '';
+    const s = String(cell);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  }).join(','));
+  const csv = '\uFEFF' + csvLines.join('\n'); // BOM for Excel
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename.replace('.xlsx','.csv');
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast(`Descargado: ${filename.replace('.xlsx','.csv')}`);
 }
 
 function copiarTabla(id) {
