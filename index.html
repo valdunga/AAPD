@@ -445,7 +445,7 @@ function generarLiquidacion() {
 
   const byDay = {};
   rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
-  const cols = prestadorSel ? 8 : 9; // +1 para el checkbox col
+  const cols = 8; // checkbox + Fecha + Email + Celular + RUT + Precio venta + Cuota 1 + A depositar
   // guardar en state para uso del botón "marcar período"
   state._currentDayKeys = Object.keys(byDay).map(dia => `${prestadorSel || 'ALL'}|${dia}`);
   state._currentCols = cols;
@@ -470,11 +470,13 @@ function generarLiquidacion() {
     <table id="tabla-resultado">
       <thead><tr>
         <th style="width:36px"></th>
-        <th>Fecha</th><th>Cliente</th><th>Email</th><th>RUT</th>
-        ${!prestadorSel ? '<th>Prestador</th>' : ''}
+        <th>Fecha</th>
+        <th>Email</th>
+        <th>Celular</th>
+        <th>RUT</th>
         <th class="right">Precio venta</th>
-        <th class="right">1er cobro paciente</th>
-        <th class="right">A depositar</th>
+        <th class="right">Cuota 1 cobrada</th>
+        <th class="right">Monto a depositar</th>
       </tr></thead>
       <tbody>`;
 
@@ -504,10 +506,9 @@ function generarLiquidacion() {
       html += `<tr class="${rowCls} data-row-${pagKey.replace(/[|]/g,'_')}">
         <td></td>
         <td class="td-mono td-muted">${r.fechaStr}</td>
-        <td>${r.cliente}</td>
         <td class="td-email td-muted">${r.email}</td>
+        <td class="td-mono td-muted">${r.phone}</td>
         <td class="td-mono td-muted">${r.rut}</td>
-        ${!prestadorSel ? `<td>${r.prestador}</td>` : ''}
         <td class="td-amount right">${fmtCLP(r.precio)}</td>
         <td class="td-mono right">${fmtCLP(r.cobro1)}</td>
         <td class="td-amount right">${fmtCLP(r.depositoPrest)}</td>
