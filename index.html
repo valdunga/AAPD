@@ -119,6 +119,14 @@
   .paid-toggle.is-paid { color: var(--positive); border-color: var(--positive); background: rgba(52,211,153,.12); }
   .paid-toggle .check { font-size: 13px; }
 
+  button.filter-btn {
+    width: 100%; background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-size: 12px; font-weight: 600; padding: 8px 14px;
+    cursor: pointer; text-align: left; transition: all .15s;
+  }
+  button.filter-btn:hover { border-color: var(--warn); color: var(--warn); background: rgba(251,191,36,.05); }
+  button.filter-btn.active { border-color: var(--warn); color: var(--warn); background: rgba(251,191,36,.1); }
+
   /* alert banner */
   .alert-banner { display: flex; align-items: flex-start; gap: 12px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; }
   .alert-banner .alert-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
@@ -218,6 +226,13 @@
       </div>
     </div>
 
+    <div id="sidebar-liquidaciones-extra">
+      <div class="section-label">Filtros</div>
+      <button class="filter-btn" id="btn-solo-pendientes" onclick="toggleSoloPendientes()">
+        ○ Solo pendientes de pago
+      </button>
+    </div>
+
     <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>Generar</button>
   </aside>
 
@@ -234,7 +249,7 @@
 <div id="toast"></div>
 
 <script>
-const state = { loans: null, ventas: null, activeTab: 'liquidaciones', ajustesCuotas: {} };
+const state = { loans: null, ventas: null, activeTab: 'liquidaciones', ajustesCuotas: {}, soloPendientes: false };
 const FEE_VENTI = 0.057;
 const FEES_DEFAULT = {
   'Saludtech': { prestador: 3.57, paciente: 5.95 },
@@ -377,7 +392,7 @@ function buildRows(filtrarPrestador) {
       ingresoSkip:   (amountLoan - txFee) - precio * (1 - fp),
     });
   });
-  rows.sort((a, b) => a.fecha - b.fecha);
+  rows.sort((a, b) => b.fecha - a.fecha); // más reciente primero
   return rows;
 }
 
@@ -413,6 +428,15 @@ function getFechas() {
   return { desde: d ? new Date(d) : null, hasta: h ? new Date(h + 'T23:59:59') : null };
 }
 
+function toggleSoloPendientes() {
+  state.soloPendientes = !state.soloPendientes;
+  const btn = document.getElementById('btn-solo-pendientes');
+  if (btn) {
+    btn.classList.toggle('active', state.soloPendientes);
+    btn.textContent = state.soloPendientes ? '✓ Solo pendientes de pago' : '○ Solo pendientes de pago';
+  }
+}
+
 function generarActivo() {
   if (state.activeTab === 'liquidaciones') generarLiquidacion();
   else generarIngresos();
@@ -435,9 +459,6 @@ function generarLiquidacion() {
   if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
   const { desde, hasta } = getFechas();
-  const totalDeposito = rows.reduce((s, r) => s + r.depositoPrest, 0);
-  const totalPrecio   = rows.reduce((s, r) => s + r.precio, 0);
-  const totalFee      = rows.reduce((s, r) => s + r.feePrest$, 0);
   const titulo  = prestadorSel || 'Todos los prestadores';
   const periodo = (desde || hasta)
     ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
@@ -445,6 +466,23 @@ function generarLiquidacion() {
 
   const byDay = {};
   rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
+
+  // filtrar solo días pendientes si está activo
+  if (state.soloPendientes) {
+    Object.keys(byDay).forEach(dia => {
+      const pagKey = `${prestadorSel || 'ALL'}|${dia}`;
+      if (isPagado(pagKey)) delete byDay[dia];
+    });
+  }
+
+  if (!Object.keys(byDay).length) { toast('No hay días pendientes de pago en este período'); return; }
+
+  // recalcular totales sobre días visibles
+  const rowsVisibles = Object.values(byDay).flat();
+  const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
+  const totalPrecio   = rowsVisibles.reduce((s, r) => s + r.precio, 0);
+  const totalFee      = rowsVisibles.reduce((s, r) => s + r.feePrest$, 0);
+
   const cols = 8; // checkbox + Fecha + Email + Celular + RUT + Precio venta + Cuota 1 + A depositar
   // guardar en state para uso del botón "marcar período"
   state._currentDayKeys = Object.keys(byDay).map(dia => `${prestadorSel || 'ALL'}|${dia}`);
