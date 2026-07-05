@@ -57,6 +57,7 @@
 
   button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 7px 14px; font-size: 12px; cursor: pointer; transition: border-color .2s, color .2s; }
   button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  button.secondary:disabled { opacity: .35; cursor: not-allowed; }
 
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
   select, input[type="date"], input[type="text"], input[type="number"] { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--sans); font-size: 13px; padding: 8px 10px; outline: none; transition: border-color .2s; appearance: none; }
@@ -153,6 +154,18 @@
 
   .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .tag-blue { background: rgba(79,142,247,.15); color: var(--accent); }
+
+  /* prestadores management */
+  .prestador-manager { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: rgba(255,255,255,.015); }
+  .prestador-manager .pm-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+  .pm-chip-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 160px; overflow-y: auto; }
+  .pm-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11px; }
+  .pm-chip .pm-chip-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-chip .pm-chip-fees { color: var(--muted); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+  .pm-chip .pm-chip-del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+  .pm-chip .pm-chip-del:hover { opacity: .7; }
+  .pm-empty { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 8px; }
+  .save-fee-label { color: var(--accent); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -208,6 +221,9 @@
           <input type="number" id="fee-paciente" step="0.01" min="0" max="100" placeholder="ej: 5.95">
         </div>
       </div>
+      <button class="secondary" id="btn-guardar-fees" style="width:100%;" onclick="guardarFeesActuales()" disabled>
+        💾 Guardar fees de <span class="save-fee-label" id="fee-save-label">–</span>
+      </button>
     </div>
 
     <div>
@@ -226,6 +242,8 @@
       </div>
     </div>
 
+    <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>Generar</button>
+
     <div id="sidebar-liquidaciones-extra">
       <div class="section-label">Filtros</div>
       <button class="filter-btn" id="btn-solo-pendientes" onclick="toggleSoloPendientes()">
@@ -233,7 +251,25 @@
       </button>
     </div>
 
-    <button class="primary" id="btn-generar" onclick="generarActivo()" disabled>Generar</button>
+    <div class="prestador-manager">
+      <div class="pm-title">➕ Nuevo prestador</div>
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="new-prestador-nombre" placeholder="ej: NuevaClinica">
+      </div>
+      <div class="fee-grid">
+        <div class="field">
+          <label>Fee prestador %</label>
+          <input type="number" id="new-fee-prestador" step="0.01" min="0" max="100" placeholder="ej: 3.57">
+        </div>
+        <div class="field">
+          <label>Fee paciente %</label>
+          <input type="number" id="new-fee-paciente" step="0.01" min="0" max="100" placeholder="ej: 5.95">
+        </div>
+      </div>
+      <button class="secondary" style="width:100%;" onclick="agregarPrestador()">Guardar prestador</button>
+      <div id="pm-chip-list" class="pm-chip-list"></div>
+    </div>
   </aside>
 
   <div class="content">
@@ -251,6 +287,7 @@
 <script>
 const state = { loans: null, ventas: null, activeTab: 'liquidaciones', ajustesCuotas: {}, soloPendientes: false };
 const FEE_VENTI = 0.057;
+// Fees "de fábrica" — quedan como respaldo si un prestador no tiene fee guardado en localStorage.
 const FEES_DEFAULT = {
   'Saludtech': { prestador: 3.57, paciente: 5.95 },
   'Examedi':   { prestador: 3.57, paciente: 6.55 },
@@ -270,7 +307,7 @@ const monthLabel = k => {
   return `${names[parseInt(m)-1]} ${y}`;
 };
 
-// ── localStorage helpers ──
+// ── localStorage helpers: pagos ──
 const LS_KEY = 'skip_pagados_v1';
 function getPagados() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
@@ -281,6 +318,29 @@ function setPagado(key, val) {
   localStorage.setItem(LS_KEY, JSON.stringify(p));
 }
 function isPagado(key) { return !!getPagados()[key]; }
+
+// ── localStorage helpers: fees de prestadores (feature escalable) ──
+const LS_FEES_KEY = 'skip_fees_config_v1';
+function getFeesConfig() {
+  try { return JSON.parse(localStorage.getItem(LS_FEES_KEY) || '{}'); } catch { return {}; }
+}
+function saveFeeConfig(nombre, feePrestador, feePaciente) {
+  const cfg = getFeesConfig();
+  cfg[nombre] = { prestador: feePrestador, paciente: feePaciente };
+  localStorage.setItem(LS_FEES_KEY, JSON.stringify(cfg));
+}
+function deleteFeeConfig(nombre) {
+  const cfg = getFeesConfig();
+  delete cfg[nombre];
+  localStorage.setItem(LS_FEES_KEY, JSON.stringify(cfg));
+}
+// Prioridad: fee guardado manualmente > fee de fábrica > fee genérico de respaldo
+function getFeesFor(prestador) {
+  const cfg = getFeesConfig();
+  if (cfg[prestador]) return cfg[prestador];
+  if (FEES_DEFAULT[prestador]) return FEES_DEFAULT[prestador];
+  return { prestador: 3.57, paciente: 5.95 };
+}
 
 // ── tabs ──
 function switchTab(tab, btn) {
@@ -339,22 +399,95 @@ function loadFile(type, input) {
 }
 
 function populatePrestadores(ventas) {
-  const prestadores = [...new Set(ventas.map(r => r['Prestador']).filter(Boolean))].sort();
+  const cfg = getFeesConfig();
+  const desdeVentas   = ventas ? [...new Set(ventas.map(r => r['Prestador']).filter(Boolean))] : [];
+  const desdeGuardados = Object.keys(cfg);
+  const prestadores = [...new Set([...desdeVentas, ...desdeGuardados])].sort();
   const sel = document.getElementById('sel-prestador');
+  const valorPrevio = sel.value;
   sel.innerHTML = '<option value="">Todos los prestadores</option>' +
     prestadores.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (prestadores.includes(valorPrevio)) sel.value = valorPrevio;
   onPrestadorChange();
 }
 
 function onPrestadorChange() {
   const p = document.getElementById('sel-prestador').value;
-  const fees = FEES_DEFAULT[p] || { prestador: 3.57, paciente: 5.95 };
+  const fees = getFeesFor(p);
   document.getElementById('fee-prestador').value = fees.prestador;
   document.getElementById('fee-paciente').value  = fees.paciente;
+  const btnGuardar = document.getElementById('btn-guardar-fees');
+  const label = document.getElementById('fee-save-label');
+  if (p) {
+    btnGuardar.disabled = false;
+    label.textContent = p;
+  } else {
+    btnGuardar.disabled = true;
+    label.textContent = '–';
+  }
 }
 
 function checkReady() {
   document.getElementById('btn-generar').disabled = !(state.loans && state.ventas);
+}
+
+// ── gestión de prestadores / fees (feature escalable) ──
+function agregarPrestador() {
+  const nombreInput = document.getElementById('new-prestador-nombre');
+  const nombre = nombreInput.value.trim();
+  const fp   = parseFloat(document.getElementById('new-fee-prestador').value);
+  const fpac = parseFloat(document.getElementById('new-fee-paciente').value);
+
+  if (!nombre) { toast('Ingresa un nombre de prestador'); return; }
+  if (isNaN(fp) || isNaN(fpac)) { toast('Ingresa ambos fees (%)'); return; }
+
+  saveFeeConfig(nombre, fp, fpac);
+  toast(`Prestador "${nombre}" guardado`);
+
+  nombreInput.value = '';
+  document.getElementById('new-fee-prestador').value = '';
+  document.getElementById('new-fee-paciente').value = '';
+
+  populatePrestadores(state.ventas); // refresca el <select> y respeta selección previa si aplica
+  renderPrestadoresGuardados();
+}
+
+function guardarFeesActuales() {
+  const p = document.getElementById('sel-prestador').value;
+  if (!p) { toast('Selecciona un prestador primero'); return; }
+  const fp   = parseFloat(document.getElementById('fee-prestador').value);
+  const fpac = parseFloat(document.getElementById('fee-paciente').value);
+  if (isNaN(fp) || isNaN(fpac)) { toast('Ingresa ambos fees (%)'); return; }
+  saveFeeConfig(p, fp, fpac);
+  toast(`Fees de "${p}" guardados`);
+  renderPrestadoresGuardados();
+}
+
+function eliminarPrestadorGuardado(nombre) {
+  deleteFeeConfig(nombre);
+  toast(`"${nombre}" eliminado de guardados`);
+  populatePrestadores(state.ventas);
+  renderPrestadoresGuardados();
+}
+
+function renderPrestadoresGuardados() {
+  const cfg = getFeesConfig();
+  const cont = document.getElementById('pm-chip-list');
+  const nombres = Object.keys(cfg).sort();
+  if (!nombres.length) {
+    cont.innerHTML = '<div class="pm-empty">Aún no hay prestadores guardados manualmente. Los de fábrica (Saludtech, Examedi, HisMed) siguen disponibles igual.</div>';
+    return;
+  }
+  cont.innerHTML = nombres.map(n => {
+    const f = cfg[n];
+    return `<div class="pm-chip">
+      <div>
+        <div class="pm-chip-name">${n}</div>
+        <div class="pm-chip-fees">prestador ${f.prestador}% · paciente ${f.paciente}%</div>
+      </div>
+      <button class="pm-chip-del" title="Eliminar" onclick="eliminarPrestadorGuardado('${n.replace(/'/g,"\\'")}')">✕</button>
+    </div>`;
+  }).join('');
 }
 
 // ── join rows ──
@@ -373,7 +506,7 @@ function buildRows(filtrarPrestador) {
     const fecha = new Date(loan['Creation Date (Local)']);
     if (desde && fecha < desde) return;
     if (hasta && fecha > hasta) return;
-    const def = FEES_DEFAULT[prestador] || { prestador: 3.57, paciente: 5.95 };
+    const def = getFeesFor(prestador);
     const fp  = def.prestador / 100;
     const precio     = parseFloat(venta['Total Amount']) || 0;
     const amountLoan = parseFloat(loan['Amount']) || 0;
@@ -406,7 +539,7 @@ function buildRefundados() {
     const hash = extractOrderHash(loan['Metadata']); if (!hash) return;
     const venta = ventasIdx[hash]; if (!venta) return;
     const prestador = venta['Prestador']; if (!prestador) return;
-    const def = FEES_DEFAULT[prestador] || { prestador: 3.57, paciente: 5.95 };
+    const def = getFeesFor(prestador);
     const fp  = def.prestador / 100;
     const precio = parseFloat(venta['Total Amount']) || 0;
     problemas.push({
@@ -866,6 +999,12 @@ function toast(msg) {
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// ── init ──
+document.addEventListener('DOMContentLoaded', () => {
+  populatePrestadores(null);
+  renderPrestadoresGuardados();
+});
 </script>
 </body>
 </html>
