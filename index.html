@@ -394,6 +394,7 @@ function loadFile(type, input) {
     toast(`${type === 'loans' ? 'Loans' : 'Ventas'} cargado — ${data.length} registros`);
     if (type === 'ventas') populatePrestadores(data);
     checkReady();
+    actualizarColoresPrestadores();
   };
   reader.readAsText(file, 'UTF-8');
 }
@@ -409,6 +410,49 @@ function populatePrestadores(ventas) {
     prestadores.map(p => `<option value="${p}">${p}</option>`).join('');
   if (prestadores.includes(valorPrevio)) sel.value = valorPrevio;
   onPrestadorChange();
+  actualizarColoresPrestadores();
+}
+
+// ── marcar en rojo los prestadores con pagos pendientes en el período seleccionado ──
+// Regla: el día de hoy NO cuenta como pendiente, porque el depósito de hoy aún no se realiza
+// (el día no ha cerrado). Solo se considera pendiente desde ayer hacia atrás.
+function fechaHoyStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function computePrestadoresPendientes() {
+  const pendientes = new Set();
+  if (!state.loans || !state.ventas) return pendientes;
+  const hoy = fechaHoyStr();
+  const sel = document.getElementById('sel-prestador');
+  const prestadores = [...sel.options].map(o => o.value).filter(v => v);
+  prestadores.forEach(p => {
+    let rows;
+    try { rows = buildRows(p); } catch { rows = []; }
+    if (!rows.length) return;
+    const dias = new Set(rows.map(r => r.fechaStr).filter(dia => dia < hoy)); // excluye el día de hoy
+    for (const dia of dias) {
+      if (!isPagado(`${p}|${dia}`)) { pendientes.add(p); break; }
+    }
+  });
+  return pendientes;
+}
+
+function actualizarColoresPrestadores() {
+  const sel = document.getElementById('sel-prestador');
+  if (!sel) return;
+  const pendientes = computePrestadoresPendientes();
+  [...sel.options].forEach(opt => {
+    if (!opt.value) return; // "Todos los prestadores" queda neutro
+    const isPend = pendientes.has(opt.value);
+    opt.style.color = isPend ? 'var(--danger)' : '';
+    opt.style.fontWeight = isPend ? '700' : '';
+    opt.textContent = isPend ? `🔴 ${opt.value}` : opt.value;
+  });
 }
 
 function onPrestadorChange() {
@@ -732,6 +776,8 @@ function togglePagado(pagKey, dia, cols) {
   document.querySelectorAll(`.tot-row-${safeKey}`).forEach(tr => {
     tr.className = (!actual ? 'day-total paid-day-total ' : 'day-total ') + `tot-row-${safeKey}`;
   });
+
+  actualizarColoresPrestadores();
 }
 
 function toggleAlertDetail(btn) {
@@ -900,6 +946,7 @@ function marcarPeriodoCompleto() {
   }
 
   toast(setTo ? `${keys.length} días marcados como pagados` : `${keys.length} días desmarcados`);
+  actualizarColoresPrestadores();
 }
 
 function descargarXLSX() {
@@ -992,6 +1039,7 @@ function setMesEnCurso() {
   const fmt  = d => d.toISOString().split('T')[0];
   document.getElementById('fecha-desde').value = fmt(desde);
   document.getElementById('fecha-hasta').value  = fmt(hasta);
+  actualizarColoresPrestadores();
 }
 
 function toast(msg) {
@@ -1004,6 +1052,8 @@ function toast(msg) {
 document.addEventListener('DOMContentLoaded', () => {
   populatePrestadores(null);
   renderPrestadoresGuardados();
+  document.getElementById('fecha-desde').addEventListener('change', actualizarColoresPrestadores);
+  document.getElementById('fecha-hasta').addEventListener('change', actualizarColoresPrestadores);
 });
 </script>
 </body>
