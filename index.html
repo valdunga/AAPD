@@ -304,7 +304,10 @@
 
   <div class="content">
     <div class="tab-panel active" id="panel-liquidaciones">
-      <div class="empty-state"><div class="icon">📋</div><p>Sube Loans y Ventas para comenzar</p></div>
+      <div id="resumen-pendientes"></div>
+      <div id="liquidacion-resultado">
+        <div class="empty-state"><div class="icon">📋</div><p>Sube Loans y Ventas para comenzar</p></div>
+      </div>
     </div>
     <div class="tab-panel" id="panel-ingresos">
       <div class="empty-state"><div class="icon">📊</div><p>Sube Loans y Ventas, luego haz clic en Generar</p></div>
@@ -546,6 +549,99 @@ function actualizarColoresPrestadores() {
       label.style.fontWeight = isPend ? '700' : '';
     }
   }
+
+  renderResumenPendientes();
+}
+
+// ══════════════════════════════════
+// RESUMEN DE PENDIENTES — la vista principal para saber "a quién le debo"
+// No depende de seleccionar un prestador: barre todos y muestra montos.
+// ══════════════════════════════════
+function renderResumenPendientes() {
+  const cont = document.getElementById('resumen-pendientes');
+  if (!cont) return;
+  if (!state.loans || !state.ventas) { cont.innerHTML = ''; return; }
+
+  const hoy = fechaHoyStr();
+  const sel = document.getElementById('sel-prestador');
+  const prestadores = [...sel.options].map(o => o.value).filter(Boolean);
+
+  const resumen = [];
+  prestadores.forEach(p => {
+    let rows;
+    try { rows = buildRows(p); } catch { rows = []; }
+    if (!rows.length) return;
+
+    const porDia = {};
+    rows.forEach(r => {
+      if (r.fechaStr >= hoy) return; // el día de hoy nunca cuenta como pendiente
+      if (!porDia[r.fechaStr]) porDia[r.fechaStr] = [];
+      porDia[r.fechaStr].push(r);
+    });
+
+    let monto = 0, dias = 0, diaMasAntiguo = null;
+    Object.entries(porDia).forEach(([dia, drows]) => {
+      if (isPagado(`${p}|${dia}`)) return;
+      dias++;
+      monto += drows.reduce((s, r) => s + r.depositoPrest, 0);
+      if (!diaMasAntiguo || dia < diaMasAntiguo) diaMasAntiguo = dia;
+    });
+    if (dias > 0) resumen.push({ prestador: p, monto, dias, diaMasAntiguo });
+  });
+
+  if (!resumen.length) {
+    cont.innerHTML = `
+      <div class="alert-banner" style="border-color:rgba(52,211,153,.3); background:rgba(52,211,153,.06); margin-bottom:28px;">
+        <div class="alert-icon">✅</div>
+        <div class="alert-body">
+          <div class="alert-title" style="color:var(--positive);">Todo al día</div>
+          <div class="alert-text">No hay liquidaciones pendientes (hasta ayer) para ningún prestador cargado.</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  resumen.sort((a, b) => b.monto - a.monto); // el que más te debe, primero
+  const totalPend = resumen.reduce((s, r) => s + r.monto, 0);
+
+  cont.innerHTML = `
+    <div class="alert-banner">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <div class="alert-title">${resumen.length} prestador${resumen.length > 1 ? 'es' : ''} con liquidaciones pendientes</div>
+        <div class="alert-text">Total adeudado hasta ayer: <strong style="color:var(--danger)">${fmtCLP(totalPend)}</strong></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:28px;">
+      <table>
+        <thead><tr>
+          <th>Prestador</th>
+          <th class="right">Días sin pagar</th>
+          <th>Pendiente desde</th>
+          <th class="right">Monto adeudado</th>
+          <th style="width:1%"></th>
+        </tr></thead>
+        <tbody>
+          ${resumen.map(r => `
+            <tr>
+              <td style="font-weight:600;">${r.prestador}</td>
+              <td class="right td-mono">${r.dias}</td>
+              <td class="td-mono td-muted">${r.diaMasAntiguo}</td>
+              <td class="right td-amount" style="color:var(--danger)">${fmtCLP(r.monto)}</td>
+              <td class="right"><button class="secondary" onclick="irAPendiente('${r.prestador.replace(/'/g, "\\'")}')">Ver →</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function irAPendiente(prestador) {
+  const sel = document.getElementById('sel-prestador');
+  sel.value = prestador;
+  onPrestadorChange();
+  if (!state.soloPendientes) toggleSoloPendientes();
+  generarLiquidacion();
+  document.querySelector('.content').scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function onPrestadorChange() {
@@ -598,6 +694,7 @@ function guardarFeesActuales() {
   saveFeeConfig(p, fp, fpac);
   toast(`Fees de "${p}" guardados`);
   renderPrestadoresGuardados();
+  actualizarColoresPrestadores();
 }
 
 function eliminarPrestadorGuardado(nombre) {
@@ -834,7 +931,7 @@ function generarLiquidacion() {
     <td>${fmtCLP(totalDeposito)}</td>
   </tr></tbody></table></div>`;
 
-  document.getElementById('panel-liquidaciones').innerHTML = html;
+  document.getElementById('liquidacion-resultado').innerHTML = html;
   // sync periodo button state
   const _allPaid = (state._currentDayKeys || []).every(k => isPagado(k)) && (state._currentDayKeys||[]).length > 0;
   const _btnPer = document.getElementById('btn-marcar-periodo');
