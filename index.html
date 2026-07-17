@@ -317,6 +317,10 @@
 
 <div id="toast"></div>
 
+<!-- Generadores de Excel y PDF con formato (se ejecutan en el navegador del usuario) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 const state = { loans: null, ventas: null, activeTab: 'liquidaciones', ajustesCuotas: {}, soloPendientes: false };
 const FEE_VENTI = 0.057;
@@ -812,9 +816,13 @@ function generarActivo() {
 // ══════════════════════════════════
 // TAB 1: LIQUIDACIONES
 // ══════════════════════════════════
-function generarLiquidacion() {
-  const prestadorSel = document.getElementById('sel-prestador').value;
-  const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
+// ══════════════════════════════════
+// FUENTE ÚNICA DE VERDAD: qué días entran en "la liquidación" ahora mismo.
+// La usan por igual la tabla en pantalla, el PDF y el Excel — así nunca se desincronizan.
+// Regla: el día de hoy jamás aparece (el depósito de hoy todavía no se hace), y si el
+// filtro "Solo pendientes" está activo, los días ya marcados como pagados quedan fuera.
+// ══════════════════════════════════
+function construirLiquidacionVisible(prestadorSel, feePrestPct) {
   let rows = buildRows(prestadorSel);
   if (prestadorSel) {
     rows = rows.map(r => ({ ...r,
@@ -823,18 +831,13 @@ function generarLiquidacion() {
       ingresoSkip:   r.depositoVenti - r.precio * (1 - feePrestPct),
     }));
   }
-  if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
-  const { desde, hasta } = getFechas();
-  const titulo  = prestadorSel || 'Todos los prestadores';
-  const periodo = (desde || hasta)
-    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
-    : 'Todo el período';
+  const hoy = fechaHoyStr();
+  rows = rows.filter(r => r.fechaStr < hoy); // el día de hoy nunca se liquida (aún no cierra)
 
   const byDay = {};
   rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
 
-  // filtrar solo días pendientes si está activo
   if (state.soloPendientes) {
     Object.keys(byDay).forEach(dia => {
       const pagKey = `${prestadorSel || 'ALL'}|${dia}`;
@@ -842,10 +845,24 @@ function generarLiquidacion() {
     });
   }
 
+  return { rowsTodas: rows, byDay, rowsVisibles: Object.values(byDay).flat() };
+}
+
+function generarLiquidacion() {
+  const prestadorSel = document.getElementById('sel-prestador').value;
+  const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
+
+  const { rowsTodas, byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  if (!rowsTodas.length) { toast('Sin resultados para los filtros seleccionados (o solo queda el día de hoy, que aún no cierra)'); return; }
   if (!Object.keys(byDay).length) { toast('No hay días pendientes de pago en este período'); return; }
 
+  const { desde, hasta } = getFechas();
+  const titulo  = prestadorSel || 'Todos los prestadores';
+  const periodo = (desde || hasta)
+    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
+    : 'Todo el período';
+
   // recalcular totales sobre días visibles
-  const rowsVisibles = Object.values(byDay).flat();
   const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
   const totalPrecio   = rowsVisibles.reduce((s, r) => s + r.precio, 0);
   const totalFee      = rowsVisibles.reduce((s, r) => s + r.feePrest$, 0);
@@ -857,17 +874,18 @@ function generarLiquidacion() {
 
   let html = `
     <div class="stats-bar">
-      <div class="stat green"><div class="s-label">A depositar</div><div class="s-value">${fmtCLP(totalDeposito)}</div><div class="s-sub">${rows.length} transacciones</div></div>
+      <div class="stat green"><div class="s-label">A depositar</div><div class="s-value">${fmtCLP(totalDeposito)}</div><div class="s-sub">${rowsVisibles.length} transacciones</div></div>
       <div class="stat"><div class="s-label">Precio prestaciones</div><div class="s-value">${fmtCLP(totalPrecio)}</div><div class="s-sub">antes de fees</div></div>
       <div class="stat purple"><div class="s-label">Fee prestador</div><div class="s-value">${fmtCLP(totalFee)}</div><div class="s-sub">${prestadorSel ? (feePrestPct*100).toFixed(2)+'%' : 'variable'}</div></div>
     </div>
     <div class="table-header">
       <div>
         <div class="table-title">${titulo} <span class="tag tag-blue">${periodo}</span></div>
-        <div class="table-subtitle">Transacciones exitosas · reembolsos excluidos</div>
+        <div class="table-subtitle">Transacciones exitosas · reembolsos excluidos · no incluye el día de hoy</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="paid-toggle" id="btn-marcar-periodo" onclick="marcarPeriodoCompleto()">○ Marcar período completo</button>
+        <button class="secondary" onclick="descargarPDF()">⬇ Descargar PDF</button>
         <button class="secondary" onclick="descargarXLSX()">⬇ Descargar Excel</button>
       </div>
     </div>
@@ -1139,79 +1157,220 @@ function marcarPeriodoCompleto() {
   actualizarColoresPrestadores();
 }
 
-function descargarXLSX() {
+// ══════════════════════════════════
+// DESCARGA EN EXCEL — .xlsx real, con formato (no CSV disfrazado)
+// ══════════════════════════════════
+async function descargarXLSX() {
+  if (typeof ExcelJS === 'undefined') { toast('Cargando generador de Excel, intenta de nuevo en un segundo'); return; }
+
   const prestadorSel = document.getElementById('sel-prestador').value;
   const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
-  let rows = buildRows(prestadorSel);
-  if (prestadorSel) {
-    rows = rows.map(r => ({ ...r,
-      depositoPrest: r.precio * (1 - feePrestPct),
-      feePrest$:     r.precio * feePrestPct,
-    }));
-  }
-  if (!rows.length) { toast('Sin datos para exportar'); return; }
+  const { byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  if (!rowsVisibles.length) { toast('Sin datos para exportar (o solo queda el día de hoy, que aún no cierra)'); return; }
 
   const { desde, hasta } = getFechas();
-  const nombrePrest = prestadorSel || 'Todos';
-  const mesLabel = rows.length > 0 ? rows[0].mes.replace('-','_') : 'periodo';
-  const filename = `Liquidacion_${nombrePrest}_${mesLabel}.xlsx`;
-
-  // group by day
-  const byDay = {};
-  rows.forEach(r => { if (!byDay[r.fechaStr]) byDay[r.fechaStr] = []; byDay[r.fechaStr].push(r); });
-
-  // Build worksheet data array
-  const wsData = [];
-
-  // Title row
-  wsData.push([`Liquidación ${nombrePrest}`, '', '', '', '', '', '']);
-  const periodoLabel = (desde || hasta)
-    ? `${desde ? desde.toLocaleDateString('es-CL') : ''} al ${hasta ? hasta.toLocaleDateString('es-CL') : ''}`
+  const nombrePrest   = prestadorSel || 'Todos los prestadores';
+  const periodoLabel  = (desde || hasta)
+    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
     : 'Todo el período';
-  wsData.push([periodoLabel, '', '', '', '', '', '']);
-  wsData.push([]); // blank
+  const mesLabel  = rowsVisibles[0].mes.replace('-', '_');
+  const filename  = `Liquidacion_${nombrePrest.replace(/\s+/g, '_')}_${mesLabel}.xlsx`;
+  const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
 
-  // Header
-  wsData.push(['Fecha', 'Email', 'Teléfono', 'RUT', 'Monto Prestación', 'Monto Cobrado (30%)', 'Monto a Pagar']);
+  const MONEY_FMT = '$#,##0';
+  const MORADO    = 'FF2D0949'; // Morado Skip
+  const ROSA      = 'FFEBB1CC'; // Rosa Skip
+  const CYAN      = 'FF3A8E9C'; // Cyan Skip (oscurecido para legibilidad en celdas blancas)
+  const AMARILLO  = 'FFEFED94'; // Amarillo Skip
+  const GRIS      = 'FFEBE1E4'; // Gris Skip
+  const WHITE     = 'FFFFFFFF';
 
-  const totalDeposito = rows.reduce((s,r) => s + r.depositoPrest, 0);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Skip';
+  const ws = wb.addWorksheet('Liquidación');
+  ws.columns = [{ width: 12 }, { width: 32 }, { width: 14 }, { width: 12 }, { width: 15 }, { width: 16 }, { width: 16 }];
 
-  Object.entries(byDay).forEach(([dia, drows]) => {
-    const totDia = drows.reduce((s,r) => s + r.depositoPrest, 0);
-    drows.forEach(r => {
-      wsData.push([
-        r.fechaHora || r.fechaStr,
-        r.email,
-        r.phone,
-        r.rut,
-        r.precio,
-        r.cobro1,
-        r.depositoPrest,
-      ]);
-    });
-    // day total row
-    wsData.push(['', '', '', '', `TOTAL ${dia}`, '', totDia]);
+  ws.mergeCells('A1:G1');
+  const title = ws.getCell('A1');
+  title.value = `skip — Liquidación ${nombrePrest}`;
+  title.font  = { bold: true, size: 14, color: { argb: ROSA } };
+  title.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: MORADO } };
+  title.alignment = { vertical: 'middle', indent: 1 };
+  ws.getRow(1).height = 28;
+
+  ws.mergeCells('A2:G2');
+  const sub = ws.getCell('A2');
+  sub.value = `Período: ${periodoLabel}   ·   Generado: ${new Date().toLocaleDateString('es-CL')}   ·   No incluye el día de hoy`;
+  sub.font  = { italic: true, size: 10, color: { argb: 'FF6B7280' } };
+
+  ws.addRow([]);
+
+  const headerRow = ws.addRow(['Fecha', 'Email', 'Teléfono', 'RUT', 'Precio venta', 'Cuota cobrada', 'Monto a pagar']);
+  headerRow.eachCell(c => {
+    c.font = { bold: true, color: { argb: MORADO } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROSA } };
+    c.alignment = { horizontal: 'center' };
   });
 
-  wsData.push([]); // blank
-  wsData.push(['', '', '', '', 'TOTAL PERÍODO', '', totalDeposito]);
+  Object.entries(byDay).forEach(([dia, drows]) => {
+    const sepRow = ws.addRow([dia, '', '', '', '', '', '']);
+    ws.mergeCells(`A${sepRow.number}:G${sepRow.number}`);
+    sepRow.getCell(1).font = { bold: true, color: { argb: MORADO } };
+    sepRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS } };
 
-  // Convert to CSV with BOM for Excel UTF-8 compatibility
-  const csvLines = wsData.map(row => row.map(cell => {
-    if (cell === undefined || cell === null) return '';
-    const s = String(cell);
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g,'""')}"`;
-    return s;
-  }).join(','));
-  const csv = '\uFEFF' + csvLines.join('\n'); // BOM for Excel
+    drows.forEach(r => {
+      const row = ws.addRow([r.fechaStr, r.email, r.phone, r.rut, r.precio, r.cobro1, r.depositoPrest]);
+      [5, 6, 7].forEach(c => { row.getCell(c).numFmt = MONEY_FMT; });
+    });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const totDia = drows.reduce((s, r) => s + r.depositoPrest, 0);
+    const totRow = ws.addRow(['', '', '', '', '', `Total ${dia}`, totDia]);
+    totRow.getCell(6).font = { bold: true, color: { argb: CYAN } };
+    totRow.getCell(7).font = { bold: true, color: { argb: CYAN } };
+    totRow.getCell(7).numFmt = MONEY_FMT;
+  });
+
+  ws.addRow([]);
+  const grandRow = ws.addRow(['', '', '', '', '', 'TOTAL LIQUIDACIÓN', totalDeposito]);
+  grandRow.getCell(6).font  = { bold: true, size: 12, color: { argb: MORADO } };
+  grandRow.getCell(7).font  = { bold: true, size: 12, color: { argb: MORADO } };
+  grandRow.getCell(7).numFmt = MONEY_FMT;
+  grandRow.getCell(6).fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO } };
+  grandRow.getCell(7).fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO } };
+
+  const buf  = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = filename.replace('.xlsx','.csv');
+  a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
-  toast(`Descargado: ${filename.replace('.xlsx','.csv')}`);
+  toast(`Descargado: ${filename}`);
+}
+
+// ══════════════════════════════════
+// DESCARGA EN PDF — documento listo para enviar al prestador
+// ══════════════════════════════════
+function descargarPDF() {
+  if (typeof window.jspdf === 'undefined') { toast('Cargando generador de PDF, intenta de nuevo en un segundo'); return; }
+
+  const prestadorSel = document.getElementById('sel-prestador').value;
+  const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
+  const { byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  if (!rowsVisibles.length) { toast('Sin datos para exportar (o solo queda el día de hoy, que aún no cierra)'); return; }
+
+  const { desde, hasta } = getFechas();
+  const nombrePrest  = prestadorSel || 'Todos los prestadores';
+  const periodoLabel = (desde || hasta)
+    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
+    : 'Todo el período';
+  const mesLabel = rowsVisibles[0].mes.replace('-', '_');
+  const filename = `Liquidacion_${nombrePrest.replace(/\s+/g, '_')}_${mesLabel}.pdf`;
+  const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
+
+  // paleta Skip
+  const MORADO   = [45, 9, 73];
+  const ROSA     = [235, 177, 204];
+  const CYAN     = [58, 142, 156];
+  const AMARILLO = [239, 237, 148];
+  const GRIS     = [235, 225, 228];
+
+  const dibujarIconoSkip = (doc, cx, cy, radius, color) => {
+    doc.setDrawColor(color[0], color[1], color[2]);
+    doc.setLineWidth(2.4);
+    doc.setLineCap('round');
+    [0, 45, 90, 135, 180, 225, 270, 315].forEach(deg => {
+      const rad = deg * Math.PI / 180;
+      doc.line(
+        cx + Math.cos(rad) * radius * 0.35, cy + Math.sin(rad) * radius * 0.35,
+        cx + Math.cos(rad) * radius,        cy + Math.sin(rad) * radius
+      );
+    });
+  };
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // ── encabezado ──
+  doc.setFillColor(...MORADO);
+  doc.rect(0, 0, pageWidth, 64, 'F');
+  doc.setTextColor(...ROSA);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.text('skip', 40, 32);
+  dibujarIconoSkip(doc, 78, 27, 9, CYAN);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(210, 190, 205);
+  doc.text('Liquidación de prestador · Atiéndete Ahora, Paga Después', 40, 48);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(...MORADO);
+  doc.text(nombrePrest, 40, 92);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(138, 125, 135);
+  doc.text(`Período: ${periodoLabel}`, 40, 107);
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-CL')} · no incluye el día de hoy`, 40, 119);
+
+  // píldora de total, estilo Amarillo Skip
+  const pillW = 150, pillH = 44, pillX = pageWidth - 40 - pillW, pillY = 78;
+  doc.setFillColor(...AMARILLO);
+  doc.roundedRect(pillX, pillY, pillW, pillH, 8, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...MORADO);
+  doc.text('TOTAL A DEPOSITAR', pillX + pillW - 10, pillY + 16, { align: 'right' });
+  doc.setFontSize(18);
+  doc.text(fmtCLP(totalDeposito), pillX + pillW - 10, pillY + 35, { align: 'right' });
+
+  // ── tabla ──
+  const body = [];
+  Object.entries(byDay).forEach(([dia, drows]) => {
+    body.push([{ content: dia, colSpan: 6, styles: { fillColor: GRIS, textColor: MORADO, fontStyle: 'bold', fontSize: 8, halign: 'left' } }]);
+    drows.forEach(r => {
+      body.push([r.email, r.phone, r.rut, fmtCLP(r.precio), fmtCLP(r.cobro1), fmtCLP(r.depositoPrest)]);
+    });
+    const totDia = drows.reduce((s, r) => s + r.depositoPrest, 0);
+    body.push([
+      { content: `Total ${dia}`, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', textColor: CYAN } },
+      { content: fmtCLP(totDia), styles: { fontStyle: 'bold', textColor: CYAN } },
+    ]);
+  });
+
+  doc.autoTable({
+    startY: 140,
+    head: [['Email', 'Teléfono', 'RUT', 'Precio venta', 'Cuota cobrada', 'Monto a pagar']],
+    body,
+    styles: { font: 'helvetica', fontSize: 8, cellPadding: 6, lineColor: [235, 225, 228], lineWidth: 0.5 },
+    headStyles: { fillColor: MORADO, textColor: ROSA, fontStyle: 'bold', fontSize: 8 },
+    alternateRowStyles: { fillColor: [250, 247, 248] },
+    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+    margin: { left: 40, right: 40 },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 16;
+  doc.setFillColor(...MORADO);
+  doc.rect(40, finalY, pageWidth - 80, 32, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...ROSA);
+  doc.text('TOTAL LIQUIDACIÓN', 52, finalY + 20);
+  doc.setTextColor(...AMARILLO);
+  doc.text(fmtCLP(totalDeposito), pageWidth - 52, finalY + 20, { align: 'right' });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 165);
+    doc.text(`skip — liquidación generada automáticamente · página ${i} de ${pageCount}`, 40, doc.internal.pageSize.getHeight() - 20);
+  }
+
+  doc.save(filename);
+  toast(`Descargado: ${filename}`);
 }
 
 function copiarTabla(id) {
