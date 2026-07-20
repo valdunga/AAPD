@@ -847,22 +847,27 @@ function construirLiquidacionVisible(prestadorSel, feePrestPct) {
     });
   }
 
-  return { rowsTodas: rows, byDay, rowsVisibles: Object.values(byDay).flat() };
+  // el "período" que se muestra siempre refleja los días que realmente quedaron en la
+  // liquidación (los no pagados), no el rango de fechas elegido en la barra lateral
+  const diasKeys = Object.keys(byDay).sort();
+  const formatDiaCL = fechaStr => { const [y, m, d] = fechaStr.split('-'); return `${d}-${m}-${y}`; };
+  const periodoLabel = !diasKeys.length ? '—'
+    : diasKeys.length === 1 ? formatDiaCL(diasKeys[0])
+    : `${formatDiaCL(diasKeys[0])} al ${formatDiaCL(diasKeys[diasKeys.length - 1])}`;
+
+  return { rowsTodas: rows, byDay, rowsVisibles: Object.values(byDay).flat(), periodoLabel };
 }
 
 function generarLiquidacion() {
   const prestadorSel = document.getElementById('sel-prestador').value;
   const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
 
-  const { rowsTodas, byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  const { rowsTodas, byDay, rowsVisibles, periodoLabel } = construirLiquidacionVisible(prestadorSel, feePrestPct);
   if (!rowsTodas.length) { toast('Sin resultados para los filtros seleccionados (o solo queda el día de hoy, que aún no cierra)'); return; }
   if (!Object.keys(byDay).length) { toast('No hay días pendientes de pago en este período'); return; }
 
-  const { desde, hasta } = getFechas();
   const titulo  = prestadorSel || 'Todos los prestadores';
-  const periodo = (desde || hasta)
-    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
-    : 'Todo el período';
+  const periodo = periodoLabel;
 
   // recalcular totales sobre días visibles
   const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
@@ -1167,14 +1172,10 @@ async function descargarXLSX() {
 
   const prestadorSel = document.getElementById('sel-prestador').value;
   const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
-  const { byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  const { byDay, rowsVisibles, periodoLabel } = construirLiquidacionVisible(prestadorSel, feePrestPct);
   if (!rowsVisibles.length) { toast('Sin datos para exportar (o solo queda el día de hoy, que aún no cierra)'); return; }
 
-  const { desde, hasta } = getFechas();
   const nombrePrest   = prestadorSel || 'Todos los prestadores';
-  const periodoLabel  = (desde || hasta)
-    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
-    : 'Todo el período';
   const mesLabel  = rowsVisibles[0].mes.replace('-', '_');
   const filename  = `Liquidacion_${nombrePrest.replace(/\s+/g, '_')}_${mesLabel}.xlsx`;
   const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
@@ -1262,14 +1263,10 @@ function descargarPDF() {
 
   const prestadorSel = document.getElementById('sel-prestador').value;
   const feePrestPct  = parseFloat(document.getElementById('fee-prestador').value) / 100 || 0;
-  const { byDay, rowsVisibles } = construirLiquidacionVisible(prestadorSel, feePrestPct);
+  const { byDay, rowsVisibles, periodoLabel } = construirLiquidacionVisible(prestadorSel, feePrestPct);
   if (!rowsVisibles.length) { toast('Sin datos para exportar (o solo queda el día de hoy, que aún no cierra)'); return; }
 
-  const { desde, hasta } = getFechas();
   const nombrePrest  = prestadorSel || 'Todos los prestadores';
-  const periodoLabel = (desde || hasta)
-    ? `${desde ? desde.toLocaleDateString('es-CL') : '—'} al ${hasta ? hasta.toLocaleDateString('es-CL') : '—'}`
-    : 'Todo el período';
   const mesLabel = rowsVisibles[0].mes.replace('-', '_');
   const filename = `Liquidacion_${nombrePrest.replace(/\s+/g, '_')}_${mesLabel}.pdf`;
   const totalDeposito = rowsVisibles.reduce((s, r) => s + r.depositoPrest, 0);
