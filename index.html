@@ -421,6 +421,16 @@ function extractOrderHash(meta) {
   return m ? m[1] : null;
 }
 
+// Loans a veces trae un correo sintético que genera el propio sistema de Skip
+// para pagadores sin email real capturado (patrón: pagador-{RUT}@*.getskip.ai).
+// En ese caso, se prefiere el email real que haya quedado en Ventas.
+function resolverEmail(loan, venta) {
+  const emailLoan = (loan['Customer Email'] || '').trim();
+  const esSintetico = /@[^@\s]*\.?getskip\.ai$/i.test(emailLoan);
+  if (emailLoan && !esSintetico) return emailLoan;
+  return venta['Email'] || emailLoan || '';
+}
+
 // ── file loader ──
 function loadFile(type, input) {
   const file = input.files[0]; if (!file) return;
@@ -756,7 +766,7 @@ function buildRows(filtrarPrestador) {
       fecha, fechaStr: fmtDate(loan['Creation Date (Local)']),
       fechaHora: loan['Creation Date (Local)'] || '',
       mes: monthKey(loan['Creation Date (Local)']),
-      email: loan['Customer Email'] || venta['Email'] || '',
+      email: resolverEmail(loan, venta),
       phone: venta['Phone'] || '',
       rut: venta['RUT'] || '', cliente: venta['Cliente'] || '',
       prestador, precio, amountLoan, txFee, cobro1,
@@ -784,7 +794,7 @@ function buildRefundados() {
     const precio = parseFloat(venta['Total Amount']) || 0;
     problemas.push({
       fecha:     fmtDate(loan['Creation Date (Local)']),
-      email:     loan['Customer Email'] || venta['Email'] || '',
+      email:     resolverEmail(loan, venta),
       prestador,
       precio,
       refundAmt: parseFloat(loan['Refunded Amount']) || 0,
