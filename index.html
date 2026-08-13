@@ -149,6 +149,21 @@
   .mes-input-row .clp-prefix { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .mes-input-row input { flex: 1; }
 
+  /* análisis de sensibilidad de fees (solo pestaña Ingresos, no persiste) */
+  .sens-box { border: 1px dashed rgba(167,139,250,.4); background: rgba(167,139,250,.05); border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
+  .sens-box .sens-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .sens-box .sens-title { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--accent2); display: flex; align-items: center; gap: 6px; }
+  .sens-box .sens-reset { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 2px 4px; }
+  .sens-box .sens-reset:hover { color: var(--text); }
+  .sens-box .sens-note { font-size: 11px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  .sens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .sens-field label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 8px; }
+  .sens-field .sens-val { font-family: var(--mono); color: var(--accent2); background: rgba(167,139,250,.12); border-radius: 4px; padding: 1px 7px; }
+  .sens-slider-row { display: flex; align-items: center; gap: 10px; }
+  .sens-slider-row input[type="range"] { flex: 1; accent-color: var(--accent2); height: 4px; cursor: pointer; }
+  .sens-slider-row input[type="number"] { width: 68px; text-align: right; flex: none; }
+  @media (max-width: 720px) { .sens-grid { grid-template-columns: 1fr; } }
+
   #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100; }
   #toast.show { opacity: 1; }
 
@@ -1014,31 +1029,69 @@ function toggleAlertDetail(btn) {
 // ══════════════════════════════════
 // TAB 2: INGRESOS
 // ══════════════════════════════════
+//
+// Análisis de sensibilidad de fees (solo vista, no persiste):
+// Los sliders mueven, en PUNTOS PORCENTUALES, el fee de cada prestador respecto
+// a su fee real configurado. Ej: fee prestador real de un prestador es 3% y el
+// slider está en -1 → para esta simulación ese prestador queda en 2%.
+// Fórmula por transacción (base = valores reales calculados por buildRows):
+//   fpNuevo            = (feePrest$_base / precio) + deltaPrestadorPts/100
+//   depositoPrest_sim  = precio * (1 - fpNuevo)
+//   depositoVenti_sim  = depositoVenti_base + precio * (deltaPacientePts/100)
+//   ingresoSkip_sim    = depositoVenti_sim - depositoPrest_sim
+// El fee paciente hoy no está cableado a ningún cálculo real (es solo metadata
+// guardada por prestador), así que su efecto se modela como el equivalente
+// simétrico al fee prestador: puntos adicionales sobre el precio de la
+// prestación, sumados al depósito que llega de Venti. Esto es una aproximación
+// para explorar sensibilidad, no una cifra oficial.
 function generarIngresos() {
   const rows = buildRows(null);
   if (!rows.length) { toast('Sin resultados para los filtros seleccionados'); return; }
 
-  const meses = {};
-  rows.forEach(r => {
-    if (!meses[r.mes]) meses[r.mes] = { depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
-    const m = meses[r.mes];
-    m.depositoVenti += r.depositoVenti;
-    m.depositoPrest += r.depositoPrest;
-    m.ingresoSkip   += r.ingresoSkip;
-  });
+  // guardamos las filas base (sin sensibilidad) para recalcular en vivo
+  state._ingresosBaseRows = rows;
 
-  const mesKeys     = Object.keys(meses).sort();
+  const { meses, mesKeys } = agruparIngresosPorMes(rows, 0, 0);
+  state._ingresosMesKeys = mesKeys;
+
   const ajustes     = state.ajustesCuotas || {};
-  const totalVenti  = Object.values(meses).reduce((s,m) => s + m.depositoVenti, 0);
-  const totalPrest  = Object.values(meses).reduce((s,m) => s + m.depositoPrest, 0);
-  const totalSkip   = Object.values(meses).reduce((s,m) => s + m.ingresoSkip, 0);
+  const totalVenti  = mesKeys.reduce((s,k) => s + meses[k].depositoVenti, 0);
+  const totalPrest  = mesKeys.reduce((s,k) => s + meses[k].depositoPrest, 0);
+  const totalSkip   = mesKeys.reduce((s,k) => s + meses[k].ingresoSkip, 0);
   const totalAjuste = mesKeys.reduce((s,k) => s + (parseFloat(ajustes[k]) || 0), 0);
   const totalReal   = totalSkip - totalAjuste;
 
   let html = `
+  <div class="sens-box" id="sens-box">
+    <div class="sens-head">
+      <div class="sens-title">🧪 Análisis de sensibilidad de fees</div>
+      <button class="sens-reset" onclick="restablecerSensibilidad()">↺ Restablecer a 0</button>
+    </div>
+    <div class="sens-note">Mueve los fees en puntos porcentuales solo para simular — no modifica ni guarda los fees reales, y no afecta la pestaña Liquidaciones. Vuelve a 0 cada vez que recargas la app.</div>
+    <div class="sens-grid">
+      <div class="sens-field">
+        <label>Fee prestador <span class="sens-val" id="sens-prestador-val">+0.0 pts</span></label>
+        <div class="sens-slider-row">
+          <input type="range" id="sens-prestador-range" min="-10" max="10" step="0.1" value="0"
+            oninput="onSensSliderInput('prestador', this.value)">
+          <input type="number" id="sens-prestador-num" min="-10" max="10" step="0.1" value="0"
+            oninput="onSensSliderInput('prestador', this.value)">
+        </div>
+      </div>
+      <div class="sens-field">
+        <label>Fee paciente <span class="sens-val" id="sens-paciente-val">+0.0 pts</span></label>
+        <div class="sens-slider-row">
+          <input type="range" id="sens-paciente-range" min="-10" max="10" step="0.1" value="0"
+            oninput="onSensSliderInput('paciente', this.value)">
+          <input type="number" id="sens-paciente-num" min="-10" max="10" step="0.1" value="0"
+            oninput="onSensSliderInput('paciente', this.value)">
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="stats-bar">
-    <div class="stat green"><div class="s-label">Depósito Venti → Skip</div><div class="s-value">${fmtCLP(totalVenti)}</div><div class="s-sub">todo el período</div></div>
-    <div class="stat purple"><div class="s-label">Depósito Skip → Prestadores</div><div class="s-value">${fmtCLP(totalPrest)}</div><div class="s-sub">todo el período</div></div>
+    <div class="stat green"><div class="s-label">Depósito Venti → Skip</div><div class="s-value" id="kpi-venti">${fmtCLP(totalVenti)}</div><div class="s-sub">todo el período</div></div>
+    <div class="stat purple"><div class="s-label">Depósito Skip → Prestadores</div><div class="s-value" id="kpi-prest">${fmtCLP(totalPrest)}</div><div class="s-sub">todo el período</div></div>
     <div class="stat warn"><div class="s-label">Cuotas no cobradas</div><div class="s-value" id="kpi-ajuste">${fmtCLP(totalAjuste)}</div><div class="s-sub">ingresado manualmente</div></div>
     <div class="stat total"><div class="s-label">Ingreso neto Skip</div><div class="s-value" id="kpi-total">${fmtCLP(totalReal)}</div><div class="s-sub">después de todos los descuentos</div></div>
   </div>
@@ -1056,7 +1109,7 @@ function generarIngresos() {
       </tr></thead>
       <tbody>`;
 
-  // guardar brutos por mes para recalcular dinámicamente
+  // guardar brutos por mes para recalcular dinámicamente (ajustes de cuotas)
   state._mesBrutos = {};
   mesKeys.forEach(k => {
     const m      = meses[k];
@@ -1065,9 +1118,9 @@ function generarIngresos() {
     state._mesBrutos[k] = m.ingresoSkip;
     html += `<tr>
       <td style="font-weight:600;">${monthLabel(k)}</td>
-      <td class="td-amount right">${fmtCLP(m.depositoVenti)}</td>
-      <td class="td-purple right">${fmtCLP(m.depositoPrest)}</td>
-      <td class="td-mono right" style="color:var(--warn)">${fmtCLP(m.ingresoSkip)}</td>
+      <td class="td-amount right" id="venti-${k}">${fmtCLP(m.depositoVenti)}</td>
+      <td class="td-purple right" id="prest-${k}">${fmtCLP(m.depositoPrest)}</td>
+      <td class="td-mono right" id="bruto-${k}" style="color:var(--warn)">${fmtCLP(m.ingresoSkip)}</td>
       <td class="right">
         <div class="mes-input-row" style="justify-content:flex-end;">
           <span class="clp-prefix">$</span>
@@ -1085,9 +1138,9 @@ function generarIngresos() {
   html += `</tbody>
     <tfoot><tr style="border-top:2px solid var(--border);">
       <td style="font-weight:700;padding:12px 14px;">TOTAL</td>
-      <td class="td-amount right" style="padding:12px 14px;">${fmtCLP(totalVenti)}</td>
-      <td class="td-purple right" style="padding:12px 14px;">${fmtCLP(totalPrest)}</td>
-      <td class="td-mono right" style="padding:12px 14px;color:var(--warn);font-weight:700;">${fmtCLP(totalSkip)}</td>
+      <td class="td-amount right" style="padding:12px 14px;" id="footer-venti">${fmtCLP(totalVenti)}</td>
+      <td class="td-purple right" style="padding:12px 14px;" id="footer-prest">${fmtCLP(totalPrest)}</td>
+      <td class="td-mono right" style="padding:12px 14px;color:var(--warn);font-weight:700;" id="footer-bruto">${fmtCLP(totalSkip)}</td>
       <td class="td-mono right" style="padding:12px 14px;color:var(--danger);font-weight:700;" id="total-ajuste-footer">${fmtCLP(totalAjuste)}</td>
       <td class="td-mono right" style="padding:12px 14px;color:var(--positive);font-weight:700;" id="total-neto-footer">${fmtCLP(netoTot)}</td>
     </tr></tfoot>
@@ -1095,6 +1148,95 @@ function generarIngresos() {
   </div>`;
 
   document.getElementById('panel-ingresos').innerHTML = html;
+}
+
+// Agrupa filas por mes aplicando (opcionalmente) los deltas de sensibilidad, en puntos.
+function agruparIngresosPorMes(rows, deltaPrestPts, deltaPacPts) {
+  const dPrestFrac = (parseFloat(deltaPrestPts) || 0) / 100;
+  const dPacFrac   = (parseFloat(deltaPacPts) || 0) / 100;
+  const meses = {};
+  rows.forEach(r => {
+    if (!meses[r.mes]) meses[r.mes] = { depositoVenti: 0, depositoPrest: 0, ingresoSkip: 0 };
+    const m = meses[r.mes];
+    let depositoPrest = r.depositoPrest;
+    let depositoVenti = r.depositoVenti;
+    if (dPrestFrac !== 0 && r.precio) {
+      const fpBase = r.feePrest$ / r.precio;
+      const fpNuevo = fpBase + dPrestFrac;
+      depositoPrest = r.precio * (1 - fpNuevo);
+    }
+    if (dPacFrac !== 0 && r.precio) {
+      depositoVenti = r.depositoVenti + r.precio * dPacFrac;
+    }
+    m.depositoVenti += depositoVenti;
+    m.depositoPrest += depositoPrest;
+    m.ingresoSkip   += (depositoVenti - depositoPrest);
+  });
+  return { meses, mesKeys: Object.keys(meses).sort() };
+}
+
+// Sincroniza slider <-> input numérico y dispara el recálculo
+function onSensSliderInput(cual, val) {
+  let v = parseFloat(val);
+  if (isNaN(v)) v = 0;
+  v = Math.max(-10, Math.min(10, v));
+  document.getElementById(`sens-${cual}-range`).value = v;
+  document.getElementById(`sens-${cual}-num`).value = v;
+  const sign = v > 0 ? '+' : '';
+  document.getElementById(`sens-${cual}-val`).textContent = `${sign}${v.toFixed(1)} pts`;
+  recalcularSensibilidad();
+}
+
+function restablecerSensibilidad() {
+  ['prestador', 'paciente'].forEach(cual => onSensSliderInput(cual, 0));
+}
+
+// Recalcula solo los números de la pestaña Ingresos según los sliders — no toca localStorage ni Liquidaciones.
+function recalcularSensibilidad() {
+  if (!state._ingresosBaseRows) return;
+  const deltaPrestPts = document.getElementById('sens-prestador-num').value;
+  const deltaPacPts   = document.getElementById('sens-paciente-num').value;
+
+  const { meses, mesKeys } = agruparIngresosPorMes(state._ingresosBaseRows, deltaPrestPts, deltaPacPts);
+  const ajustes = state.ajustesCuotas || {};
+
+  let totalVenti = 0, totalPrest = 0, totalSkip = 0, totalAjuste = 0;
+  mesKeys.forEach(k => {
+    const m = meses[k];
+    const ajuste = parseFloat(ajustes[k]) || 0;
+    const neto = m.ingresoSkip - ajuste;
+    state._mesBrutos[k] = m.ingresoSkip; // para que actualizarAjuste() use la base simulada vigente
+
+    totalVenti  += m.depositoVenti;
+    totalPrest  += m.depositoPrest;
+    totalSkip   += m.ingresoSkip;
+    totalAjuste += ajuste;
+
+    const elVenti = document.getElementById(`venti-${k}`);
+    const elPrest = document.getElementById(`prest-${k}`);
+    const elBruto = document.getElementById(`bruto-${k}`);
+    const elNeto  = document.getElementById(`neto-${k}`);
+    if (elVenti) elVenti.textContent = fmtCLP(m.depositoVenti);
+    if (elPrest) elPrest.textContent = fmtCLP(m.depositoPrest);
+    if (elBruto) elBruto.textContent = fmtCLP(m.ingresoSkip);
+    if (elNeto)  { elNeto.textContent = fmtCLP(neto); elNeto.style.color = neto >= 0 ? 'var(--positive)' : 'var(--danger)'; }
+  });
+
+  const totalNeto = totalSkip - totalAjuste;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmtCLP(val); };
+  set('kpi-venti', totalVenti);
+  set('kpi-prest', totalPrest);
+  set('kpi-total', totalNeto);
+  set('footer-venti', totalVenti);
+  set('footer-prest', totalPrest);
+  set('footer-bruto', totalSkip);
+  set('total-neto-footer', totalNeto);
+
+  const kt = document.getElementById('kpi-total');
+  if (kt) kt.style.color = totalNeto >= 0 ? 'var(--positive)' : 'var(--danger)';
+  const fn = document.getElementById('total-neto-footer');
+  if (fn) fn.style.color = totalNeto >= 0 ? 'var(--positive)' : 'var(--danger)';
 }
 
 function actualizarAjuste(mes, val) {
