@@ -361,6 +361,42 @@ const monthLabel = k => {
   return `${names[parseInt(m)-1]} ${y}`;
 };
 
+// Formatea un Date como YYYY-MM-DD usando sus componentes LOCALES (getFullYear/getMonth/getDate),
+// nunca toISOString() — toISOString() convierte a UTC, y en Chile (UTC-3/-4) eso corre la fecha
+// un día hacia atrás para cualquier hora entre medianoche y la diferencia horaria.
+function fmtDateLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Diferencia en días de calendario entre dos fechas "YYYY-MM-DD", construyendo los Date
+// en hora local (nunca new Date("YYYY-MM-DD"), que el motor de JS interpreta como UTC).
+function diasEntreFechas(desdeStr, hastaStr) {
+  const [ay, am, ad] = desdeStr.split('-').map(Number);
+  const [by, bm, bd] = hastaStr.split('-').map(Number);
+  const a = new Date(ay, am - 1, ad);
+  const b = new Date(by, bm - 1, bd);
+  return Math.round((b - a) / 86400000);
+}
+
+// Escapa un string para insertarlo dentro de un literal JS entre comillas simples
+// (usado en los onclick="..." que la app arma dinámicamente con nombres de prestador).
+function escJs(str) {
+  return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// Convierte un string arbitrario (ej. "Clínica O'Higgins (Providencia)|2026-10-07") en un
+// sufijo válido para usar como id/clase CSS, reemplazando cualquier carácter que no sea
+// letra/dígito/guión/guión bajo por "_". Sin esto, un nombre de prestador con apóstrofe,
+// paréntesis, espacio, etc. rompía el onclick generado o el selector CSS usado para pintar
+// la fila como pagada, y el botón "Marcar pagado" quedaba sin efecto visual (o sin efecto
+// del todo) para ese prestador en particular.
+function cssSafeKey(str) {
+  return String(str).replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
 // ── localStorage helpers: pagos ──
 const LS_KEY = 'skip_pagados_v1';
 function getPagados() {
@@ -486,8 +522,7 @@ function renderCustomDropdownPrestadores() {
   panel.innerHTML = [...sel.options].map(opt => {
     const val   = opt.value;
     const label = val || 'Todos los prestadores';
-    const safe  = val.replace(/'/g, "\\'");
-    return `<div class="custom-select-option${sel.value === val ? ' is-selected' : ''}" data-value="${val.replace(/"/g,'&quot;')}" onclick="seleccionarPrestadorCustom('${safe}')">${label}</div>`;
+    return `<div class="custom-select-option${sel.value === val ? ' is-selected' : ''}" data-value="${val.replace(/"/g,'&quot;')}" onclick="seleccionarPrestadorCustom('${escJs(val)}')">${label}</div>`;
   }).join('');
 }
 
@@ -610,14 +645,20 @@ function renderResumenPendientes() {
       porDia[r.fechaStr].push(r);
     });
 
-    let monto = 0, dias = 0, diaMasAntiguo = null;
+    let monto = 0, diasConVentas = 0, diaMasAntiguo = null;
     Object.entries(porDia).forEach(([dia, drows]) => {
       if (isPagado(`${p}|${dia}`)) return;
-      dias++;
+      diasConVentas++;
       monto += drows.reduce((s, r) => s + r.depositoPrest, 0);
       if (!diaMasAntiguo || dia < diaMasAntiguo) diaMasAntiguo = dia;
     });
-    if (dias > 0) resumen.push({ prestador: p, monto, dias, diaMasAntiguo });
+    // "Días sin pagar" = días de atraso reales desde la venta pendiente más antigua hasta hoy.
+    // Antes se mostraba diasConVentas (cantidad de días CON ventas pendientes), que subestimaba
+    // el atraso cuando había huecos: una única venta de hace 8 días mostraba "1 día".
+    if (diasConVentas > 0) {
+      const diasAtraso = diasEntreFechas(diaMasAntiguo, hoy);
+      resumen.push({ prestador: p, monto, diasConVentas, diaMasAntiguo, diasAtraso });
+    }
   });
 
   if (!resumen.length) {
@@ -656,10 +697,10 @@ function renderResumenPendientes() {
           ${resumen.map(r => `
             <tr>
               <td style="font-weight:600;">${r.prestador}</td>
-              <td class="right td-mono">${r.dias}</td>
-              <td class="td-mono td-muted">${r.diaMasAntiguo}</td>
+              <td class="right td-mono">${r.diasAtraso}</td>
+              <td class="td-mono td-muted">${r.diaMasAntiguo}${r.diasConVentas > 1 ? `<div style="font-size:10px;color:var(--muted);font-weight:400;">${r.diasConVentas} días con ventas pendientes</div>` : ''}</td>
               <td class="right td-amount" style="color:var(--danger)">${fmtCLP(r.monto)}</td>
-              <td class="right"><button class="secondary" onclick="irAPendiente('${r.prestador.replace(/'/g, "\\'")}')">Ver →</button></td>
+              <td class="right"><button class="secondary" onclick="irAPendiente('${escJs(r.prestador)}')">Ver →</button></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -750,7 +791,7 @@ function renderPrestadoresGuardados() {
         <div class="pm-chip-name">${n}</div>
         <div class="pm-chip-fees">prestador ${f.prestador}% · paciente ${f.paciente}%</div>
       </div>
-      <button class="pm-chip-del" title="Eliminar" onclick="eliminarPrestadorGuardado('${n.replace(/'/g,"\\'")}')">✕</button>
+      <button class="pm-chip-del" title="Eliminar" onclick="eliminarPrestadorGuardado('${escJs(n)}')">✕</button>
     </div>`;
   }).join('');
 }
@@ -823,7 +864,11 @@ function buildRefundados() {
 function getFechas() {
   const d = document.getElementById('fecha-desde').value;
   const h = document.getElementById('fecha-hasta').value;
-  return { desde: d ? new Date(d) : null, hasta: h ? new Date(h + 'T23:59:59') : null };
+  // Ambos extremos se parsean con hora local explícita (T00:00:00 / T23:59:59). Antes "desde"
+  // quedaba como fecha pelada ("YYYY-MM-DD"), que el motor de JS interpreta como medianoche UTC
+  // — en Chile eso cae varias horas antes de la medianoche local real y corría el límite inferior
+  // del filtro de fechas, dejando pasar (o afuera) transacciones cercanas al borde del día.
+  return { desde: d ? new Date(d + 'T00:00:00') : null, hasta: h ? new Date(h + 'T23:59:59') : null };
 }
 
 function toggleSoloPendientes() {
@@ -945,12 +990,13 @@ function generarLiquidacion() {
     const btnCls  = pagado ? 'paid-toggle is-paid' : 'paid-toggle';
     const btnTxt  = pagado ? '✓ Pagado' : '○ Marcar pagado';
 
-    html += `<tr class="${sepCls}" id="sep-${pagKey.replace(/[|]/g,'_')}">
+    const pagKeySafe = cssSafeKey(pagKey);
+    html += `<tr class="${sepCls}" id="sep-${pagKeySafe}">
       <td colspan="${cols}">
         <div class="day-separator-inner">
           <span>📅 ${dia}</span>
-          <button class="${btnCls}" id="btn-${pagKey.replace(/[|]/g,'_')}"
-            onclick="togglePagado('${pagKey}', '${dia}', ${cols})">
+          <button class="${btnCls}" id="btn-${pagKeySafe}"
+            onclick="togglePagado('${escJs(pagKey)}', '${escJs(dia)}', ${cols})">
             <span class="check">${pagado ? '✓' : '○'}</span> ${pagado ? 'Pagado' : 'Marcar pagado'}
           </button>
         </div>
@@ -958,7 +1004,7 @@ function generarLiquidacion() {
     </tr>`;
 
     drows.forEach(r => {
-      html += `<tr class="${rowCls} data-row-${pagKey.replace(/[|]/g,'_')}">
+      html += `<tr class="${rowCls} data-row-${pagKeySafe}">
         <td></td>
         <td class="td-mono td-muted">${r.fechaStr}</td>
         <td class="td-email td-muted">${r.email}</td>
@@ -970,7 +1016,7 @@ function generarLiquidacion() {
       </tr>`;
     });
 
-    html += `<tr class="${totCls} tot-row-${pagKey.replace(/[|]/g,'_')}">
+    html += `<tr class="${totCls} tot-row-${pagKeySafe}">
       <td colspan="${cols-1}" style="text-align:right;color:var(--muted);font-size:11px;font-weight:400;">Total ${dia}</td>
       <td>${fmtCLP(tot)}</td>
     </tr>`;
@@ -994,7 +1040,7 @@ function generarLiquidacion() {
 function togglePagado(pagKey, dia, cols) {
   const actual = isPagado(pagKey);
   setPagado(pagKey, !actual);
-  const safeKey = pagKey.replace(/[|]/g,'_');
+  const safeKey = cssSafeKey(pagKey);
 
   // sep
   const sep = document.getElementById('sep-' + safeKey);
@@ -1284,7 +1330,7 @@ function marcarPeriodoCompleto() {
 
   keys.forEach(pagKey => {
     setPagado(pagKey, setTo);
-    const safeKey = pagKey.replace(/[|]/g,'_');
+    const safeKey = cssSafeKey(pagKey);
     const dia     = pagKey.split('|')[1];
 
     const sep = document.getElementById('sep-' + safeKey);
@@ -1520,12 +1566,13 @@ function copiarTabla(id) {
 }
 
 function setMesEnCurso() {
-  const hoy  = new Date();
+  const hoy   = new Date();
   const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const hasta  = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-  const fmt  = d => d.toISOString().split('T')[0];
-  document.getElementById('fecha-desde').value = fmt(desde);
-  document.getElementById('fecha-hasta').value  = fmt(hasta);
+  const hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  // fmtDateLocal (no toISOString): toISOString() convierte a UTC, y en Chile eso corría el
+  // primer y el último día del mes un día hacia atrás (ej. 1-oct quedaba 30-sep).
+  document.getElementById('fecha-desde').value = fmtDateLocal(desde);
+  document.getElementById('fecha-hasta').value  = fmtDateLocal(hasta);
   actualizarColoresPrestadores();
 }
 
